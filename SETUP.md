@@ -185,8 +185,9 @@ All operations are logged to the `logs/` directory:
 
 ## AI Breadcrumb System
 
-The system uses structured metadata comments to track AI development:
+The system uses structured metadata comments to track AI development. Breadcrumbs support both **line comments** (`//`) and **block comments** (`/* */`):
 
+**Line Comment Style:**
 ```c
 // AI_PHASE: GRAPHICS_PIPELINE
 // AI_STATUS: PARTIAL
@@ -199,6 +200,29 @@ static void init_llvm_backend(void) {
     // Implementation...
 }
 ```
+
+**Block Comment Style:**
+```c
+/*
+ * AI_PHASE: ISSUE_TRACKER_INTEGRATION
+ * AI_STATUS: IMPLEMENTED
+ * REF_GITHUB_ISSUE: #1
+ * REF_TROUBLE_TICKET: TT-2025-001
+ * HUMAN_OVERRIDE: Manual fix for edge case
+ * AI_CONTEXT: { "issue_tracker": "github", "auto_sync": true }
+ */
+int init_issue_tracking(void) {
+    // Implementation...
+}
+```
+
+**Enhanced Issue Tracking Integration:**
+The breadcrumb system now includes direct integration with issue trackers:
+- `REF_GITHUB_ISSUE`: Link to GitHub issues
+- `REF_TROUBLE_TICKET`: Internal ticket references
+- `REF_USER_FEEDBACK`: User feedback tracking
+- `REF_AUDIT_LOG`: Compliance audit logs
+- `HUMAN_OVERRIDE`: Manual intervention tracking
 
 See the main README.md for complete breadcrumb tag reference.
 

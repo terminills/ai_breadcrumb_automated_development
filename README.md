@@ -180,8 +180,9 @@ Include the AI metadata standard in files that use breadcrumbs:
 
 ### Breadcrumb Placement
 
-Place breadcrumbs immediately before the relevant code block:
+Place breadcrumbs immediately before the relevant code block using either **line comments** or **block comments**:
 
+**Line Comment Style:**
 ```c
 // AI_PHASE: GRAPHICS_PIPELINE
 // AI_STATUS: PARTIAL
@@ -190,6 +191,23 @@ Place breadcrumbs immediately before the relevant code block:
 // AROS_IMPL: Integrated with HIDD graphics system
 static BOOL compile_vertex_shader(struct RadeonContext *ctx, const char *source)
 {
+    // Implementation here...
+}
+```
+
+**Block Comment Style:**
+```c
+/*
+ * AI_PHASE: ISSUE_TRACKER_INTEGRATION
+ * AI_STATUS: IMPLEMENTED
+ * REF_GITHUB_ISSUE: #1
+ * REF_TROUBLE_TICKET: TT-2025-001
+ * AI_CONTEXT: {
+ *   "issue_tracker": "github",
+ *   "auto_sync": true
+ * }
+ */
+int init_issue_tracking(void) {
     // Implementation here...
 }
 ```
