@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AROS-Cognito: AI Development Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+        
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        
+        .stat-label {
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #4ade80;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-active {
+            background: #4ade80;
+            box-shadow: 0 0 10px #4ade80;
+        }
+        
+        .status-inactive {
+            background: #ef4444;
+        }
+        
+        .status-pending {
+            background: #fbbf24;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80 0%, #3b82f6 100%);
+            transition: width 0.3s ease;
+        }
+        
+        .log-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .error-count {
+            color: #ef4444;
+        }
+        
+        .warning-count {
+            color: #fbbf24;
+        }
+        
+        .success-count {
+            color: #4ade80;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .timestamp {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+        
+        .phase-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin: 4px;
+        }
+        
+        .phase-graphics {
+            background: #3b82f6;
+        }
+        
+        .phase-kernel {
+            background: #8b5cf6;
+        }
+        
+        .phase-printer {
+            background: #ec4899;
+        }
+        
+        .phase-other {
+            background: #6366f1;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 AROS-Cognito Development Monitor</h1>
+            <p>AI-Driven Operating System Evolution</p>
+            <p class="timestamp">Last Updated: <span id="lastUpdate">--</span></p>
+        </header>
+        
+        <div class="dashboard">
+            <!-- System Status Card -->
+            <div class="card">
+                <h2>System Status</h2>
+                <div class="stat">
+                    <span class="stat-label">
+                        <span class="status-indicator" id="statusIndicator"></span>
+                        AROS Repository
+                    </span>
+                    <span class="stat-value" id="arosStatus">--</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Training Status</span>
+                    <span class="stat-value" id="trainingStatus">--</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Iteration Loop</span>
+                    <span class="stat-value" id="loopStatus">--</span>
+                </div>
+            </div>
+            
+            <!-- Breadcrumb Statistics Card -->
+            <div class="card">
+                <h2>AI Breadcrumbs</h2>
+                <div class="stat">
+                    <span class="stat-label">Total Breadcrumbs</span>
+                    <span class="stat-value" id="totalBreadcrumbs">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Files Tracked</span>
+                    <span class="stat-value" id="filesTracked">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Validation Errors</span>
+                    <span class="stat-value error-count" id="validationErrors">0</span>
+                </div>
+                <div id="phasesContainer"></div>
+            </div>
+            
+            <!-- Compilation Statistics Card -->
+            <div class="card">
+                <h2>Compilation Loop</h2>
+                <div class="stat">
+                    <span class="stat-label">Total Iterations</span>
+                    <span class="stat-value" id="totalIterations">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Successful</span>
+                    <span class="stat-value success-count" id="successfulCompiles">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Failed</span>
+                    <span class="stat-value error-count" id="failedCompiles">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Total Errors</span>
+                    <span class="stat-value error-count" id="totalErrors">0</span>
+                </div>
+            </div>
+            
+            <!-- Error Tracking Card -->
+            <div class="card">
+                <h2>Error Intelligence</h2>
+                <div class="stat">
+                    <span class="stat-label">Unique Errors</span>
+                    <span class="stat-value" id="uniqueErrors">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Resolved</span>
+                    <span class="stat-value success-count" id="resolvedErrors">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Unresolved</span>
+                    <span class="stat-value error-count" id="unresolvedErrors">0</span>
+                </div>
+                <div id="errorPatternsContainer"></div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity Section -->
+        <div class="card">
+            <h2>Recent Breadcrumbs</h2>
+            <div class="log-container" id="recentBreadcrumbs">
+                <div class="loading">Loading breadcrumbs...</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Compilation Logs</h2>
+            <div class="log-container" id="compilationLogs">
+                <div class="loading">No compilation logs yet</div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-refresh data
+        const REFRESH_INTERVAL = {{ config.ui.refresh_interval }} * 1000;
+        
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(endpoint);
+                return await response.json();
+            } catch (error) {
+                console.error(`Error fetching ${endpoint}:`, error);
+                return null;
+            }
+        }
+        
+        async function updateDashboard() {
+            // Update timestamp
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleString();
+            
+            // System Status
+            const status = await fetchData('/api/status');
+            if (status) {
+                const arosStatus = status.aros_cloned ? 'Cloned' : 'Not Cloned';
+                document.getElementById('arosStatus').textContent = arosStatus;
+                
+                const indicator = document.getElementById('statusIndicator');
+                indicator.className = 'status-indicator ' + 
+                    (status.aros_cloned ? 'status-active' : 'status-inactive');
+            }
+            
+            // Breadcrumb Statistics
+            const breadcrumbs = await fetchData('/api/breadcrumbs');
+            if (breadcrumbs && breadcrumbs.statistics) {
+                document.getElementById('totalBreadcrumbs').textContent = 
+                    breadcrumbs.statistics.total_breadcrumbs;
+                document.getElementById('filesTracked').textContent = 
+                    breadcrumbs.statistics.files_with_breadcrumbs;
+                
+                if (breadcrumbs.validation) {
+                    document.getElementById('validationErrors').textContent = 
+                        breadcrumbs.validation.error_count;
+                }
+                
+                // Display phases
+                const phasesContainer = document.getElementById('phasesContainer');
+                if (breadcrumbs.statistics.phases) {
+                    phasesContainer.innerHTML = '<div style="margin-top: 15px;">';
+                    Object.entries(breadcrumbs.statistics.phases).forEach(([phase, count]) => {
+                        const phaseClass = phase.toLowerCase().includes('graphics') ? 'phase-graphics' :
+                                         phase.toLowerCase().includes('kernel') ? 'phase-kernel' :
+                                         phase.toLowerCase().includes('printer') ? 'phase-printer' :
+                                         'phase-other';
+                        phasesContainer.innerHTML += 
+                            `<span class="phase-badge ${phaseClass}">${phase}: ${count}</span>`;
+                    });
+                    phasesContainer.innerHTML += '</div>';
+                }
+                
+                // Display recent breadcrumbs
+                if (breadcrumbs.recent_breadcrumbs) {
+                    const container = document.getElementById('recentBreadcrumbs');
+                    container.innerHTML = '';
+                    breadcrumbs.recent_breadcrumbs.forEach(bc => {
+                        const entry = document.createElement('div');
+                        entry.className = 'log-entry';
+                        entry.innerHTML = `
+                            <strong>${bc.phase || 'Unknown'}</strong> [${bc.status || 'Unknown'}]<br>
+                            <small>${bc.file}:${bc.line}</small><br>
+                            ${bc.strategy ? `<em>${bc.strategy}</em>` : ''}
+                        `;
+                        container.appendChild(entry);
+                    });
+                }
+            }
+            
+            // Compilation Statistics
+            const compilation = await fetchData('/api/compilation');
+            if (compilation && compilation.total_iterations !== undefined) {
+                document.getElementById('totalIterations').textContent = compilation.total_iterations;
+                document.getElementById('successfulCompiles').textContent = compilation.successful_compiles;
+                document.getElementById('failedCompiles').textContent = compilation.failed_compiles;
+                document.getElementById('totalErrors').textContent = compilation.total_errors;
+            }
+            
+            // Error Tracking
+            const errors = await fetchData('/api/errors');
+            if (errors) {
+                document.getElementById('uniqueErrors').textContent = errors.total_unique_errors || 0;
+                document.getElementById('resolvedErrors').textContent = errors.resolved_errors || 0;
+                document.getElementById('unresolvedErrors').textContent = errors.unresolved_errors || 0;
+                
+                // Display error patterns
+                if (errors.patterns) {
+                    const patternsContainer = document.getElementById('errorPatternsContainer');
+                    patternsContainer.innerHTML = '<div style="margin-top: 15px; font-size: 0.9em;">';
+                    Object.entries(errors.patterns).forEach(([pattern, count]) => {
+                        patternsContainer.innerHTML += 
+                            `<div class="stat"><span>${pattern.replace('_', ' ')}</span><span>${count}</span></div>`;
+                    });
+                    patternsContainer.innerHTML += '</div>';
+                }
+            }
+            
+            // Training Status
+            const training = await fetchData('/api/training/status');
+            if (training) {
+                document.getElementById('trainingStatus').textContent = 
+                    training.status || 'Not Started';
+            }
+        }
+        
+        // Initial load
+        updateDashboard();
+        
+        // Auto-refresh
+        setInterval(updateDashboard, REFRESH_INTERVAL);
+    </script>
+</body>
+</html>
