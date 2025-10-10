@@ -13,6 +13,17 @@ echo "║              Quick Start Initialization                    ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
+# Parse arguments
+USE_AMD=false
+for arg in "$@"; do
+    case $arg in
+        --amd)
+            USE_AMD=true
+            shift
+            ;;
+    esac
+done
+
 # Function to check command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
@@ -40,9 +51,19 @@ echo ""
 
 # Check if requirements are installed
 echo "Checking Python dependencies..."
-if ! python3 -c "import flask" 2>/dev/null; then
+if ! python3 -c "import flask" 2>/dev/null || ! python3 -c "import torch" 2>/dev/null; then
     echo "Installing Python dependencies..."
-    pip install -r "$PROJECT_ROOT/requirements.txt"
+    if [ "$USE_AMD" = true ]; then
+        echo ""
+        echo "AMD ROCm mode enabled. Running setup with --amd flag..."
+        bash "$SCRIPT_DIR/setup.sh" --amd
+    else
+        echo ""
+        echo "Installing with generic PyTorch..."
+        echo "Tip: Use './scripts/quickstart.sh --amd' for AMD ROCm support"
+        echo ""
+        bash "$SCRIPT_DIR/setup.sh"
+    fi
 else
     echo "✓ Dependencies already installed"
 fi
