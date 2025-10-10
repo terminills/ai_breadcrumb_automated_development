@@ -6,8 +6,12 @@
 # 1. Quick setup (one command)
 ./scripts/quickstart.sh
 
+# For AMD GPU users (MI25, MI60, etc.) - auto-detects ROCm version:
+./scripts/quickstart.sh --amd
+
 # 2. Or manual setup:
-pip install -r requirements.txt
+./scripts/setup.sh          # Generic PyTorch
+./scripts/setup.sh --amd    # AMD ROCm PyTorch (auto-detects version)
 ./scripts/clone_aros.sh
 
 # 3. Start monitoring UI
@@ -105,7 +109,11 @@ git clone <AROS_Development_URL> aros-src
 The environment must match the training stack for inference and compilation to succeed:
 
 ```bash
-# Ensure ROCm 5.7.1 and PyTorch 2.3.1 are active
+# For AMD GPU users (MI25, MI60, etc.):
+# The setup script will auto-detect your ROCm version and install the correct PyTorch
+./scripts/setup.sh --amd
+
+# Or manually ensure ROCm and PyTorch are installed:
 source /opt/rocm/bin/setup_vars
 pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
 ```

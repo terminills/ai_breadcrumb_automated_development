@@ -7,14 +7,36 @@ This guide will help you set up and run the AI Breadcrumb Automated Development 
 - Python 3.8 or higher
 - Git
 - 20GB+ free disk space (for AROS repository)
-- Optional: AMD ROCm-capable GPU for training
+- Optional: AMD ROCm-capable GPU (MI25, MI60, etc.) for training
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
+For generic PyTorch (CPU/CUDA):
 ```bash
-pip install -r requirements.txt
+./scripts/setup.sh
+```
+
+For AMD GPU users with ROCm (auto-detects ROCm version):
+```bash
+./scripts/setup.sh --amd
+```
+
+The `--amd` flag will:
+- Automatically detect your installed ROCm version
+- Install PyTorch from the AMD ROCm repository matching your version
+- Ensure compatibility with AMD Instinct GPUs (MI25, MI60, etc.)
+
+**Note**: The setup script supports ROCm versions 5.0 through 6.1. If you have a different version, it will attempt installation but may require manual intervention.
+
+Alternative quick setup (includes all steps):
+```bash
+# For generic systems:
+./scripts/quickstart.sh
+
+# For AMD ROCm systems:
+./scripts/quickstart.sh --amd
 ```
 
 ### 2. Clone AROS Repository

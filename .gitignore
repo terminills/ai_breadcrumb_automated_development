@@ -58,3 +58,6 @@ htmlcov/
 
 # OS
 Thumbs.db
+
+# Accidental pip install artifacts (files starting with =)
+=*
