@@ -177,9 +177,7 @@ echo ""
 echo "Installing base dependencies..."
 if [ "$USE_AMD" = true ]; then
     # Install all dependencies except torch
-    pip install flask>=3.0.0 transformers>=4.36.0 datasets>=2.16.0 peft>=0.7.0 \
-                accelerate>=0.25.0 bitsandbytes>=0.41.0 GitPython>=3.1.40 \
-                watchdog>=3.0.0 psutil>=5.9.0 colorama>=0.4.6 pyyaml>=6.0 tqdm>=4.66.0
+    pip install flask>=3.0.0 transformers>=4.36.0 datasets>=2.16.0 peft>=0.7.0 accelerate>=0.25.0 bitsandbytes>=0.41.0 GitPython>=3.1.40 watchdog>=3.0.0 psutil>=5.9.0 colorama>=0.4.6 pyyaml>=6.0 tqdm>=4.66.0
 else
     # Just use requirements.txt
     true  # Will be handled below
