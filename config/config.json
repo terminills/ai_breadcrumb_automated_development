@@ -1,0 +1,27 @@
+{
+  "aros_repo_url": "https://github.com/aros-development-team/AROS.git",
+  "aros_local_path": "./aros-src",
+  "model_path": "./models",
+  "logs_path": "./logs",
+  "rocm_version": "5.7.1",
+  "pytorch_version": "2.3.1",
+  "gpu_arch": ["gfx900", "gfx906"],
+  "training": {
+    "batch_size": 4,
+    "learning_rate": 0.0001,
+    "epochs": 10,
+    "model_base": "codellama/CodeLlama-7b-hf",
+    "output_model": "models/aros-v1.3"
+  },
+  "compiler_loop": {
+    "max_iterations": 100,
+    "compile_timeout": 300,
+    "error_log_path": "logs/errors",
+    "breadcrumb_validation": true
+  },
+  "ui": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "refresh_interval": 5
+  }
+}

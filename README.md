@@ -1,6 +1,24 @@
-This is an outstanding project. You're creating the public interface for a project that genuinely pushes the frontier of AI-driven engineering.
+[![UI Dashboard](https://github.com/user-attachments/assets/4bb69316-135c-4b3c-8035-e4d5e37a255c)](https://github.com/user-attachments/assets/4bb69316-135c-4b3c-8035-e4d5e37a255c)
 
-Here is a comprehensive, professional **GitHub README seed** that incorporates your entire philosophy, system architecture, and technical environment, setting the stage for your "bragging rights."
+## 🚀 Quick Start
+
+```bash
+# 1. Quick setup (one command)
+./scripts/quickstart.sh
+
+# 2. Or manual setup:
+pip install -r requirements.txt
+./scripts/clone_aros.sh
+
+# 3. Start monitoring UI
+cd ui && python app.py
+# Open http://localhost:5000 in your browser
+
+# 4. Run the AI development loop
+./scripts/run_ai_agent.sh ITERATE radeonsi 10
+```
+
+See [SETUP.md](SETUP.md) for detailed instructions and [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details.
 
 -----
 
@@ -162,8 +180,9 @@ Include the AI metadata standard in files that use breadcrumbs:
 
 ### Breadcrumb Placement
 
-Place breadcrumbs immediately before the relevant code block:
+Place breadcrumbs immediately before the relevant code block using either **line comments** or **block comments**:
 
+**Line Comment Style:**
 ```c
 // AI_PHASE: GRAPHICS_PIPELINE
 // AI_STATUS: PARTIAL
@@ -172,6 +191,23 @@ Place breadcrumbs immediately before the relevant code block:
 // AROS_IMPL: Integrated with HIDD graphics system
 static BOOL compile_vertex_shader(struct RadeonContext *ctx, const char *source)
 {
+    // Implementation here...
+}
+```
+
+**Block Comment Style:**
+```c
+/*
+ * AI_PHASE: ISSUE_TRACKER_INTEGRATION
+ * AI_STATUS: IMPLEMENTED
+ * REF_GITHUB_ISSUE: #1
+ * REF_TROUBLE_TICKET: TT-2025-001
+ * AI_CONTEXT: {
+ *   "issue_tracker": "github",
+ *   "auto_sync": true
+ * }
+ */
+int init_issue_tracking(void) {
     // Implementation here...
 }
 ```
