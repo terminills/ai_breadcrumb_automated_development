@@ -64,6 +64,26 @@ if ! python3 -c "import flask" 2>/dev/null || ! python3 -c "import torch" 2>/dev
         echo ""
         bash "$SCRIPT_DIR/setup.sh"
     fi
+    
+    # Check if setup completed successfully
+    if [ $? -ne 0 ]; then
+        echo ""
+        echo "❌ Error: Failed to install dependencies"
+        echo "   Please check the error messages above and try again"
+        echo ""
+        exit 1
+    fi
+    
+    # Verify dependencies were installed
+    if ! python3 -c "import flask" 2>/dev/null; then
+        echo ""
+        echo "❌ Error: Flask was not installed successfully"
+        echo "   Please try manually: pip install -r requirements.txt"
+        echo ""
+        exit 1
+    fi
+    
+    echo "✓ Dependencies installed successfully"
 else
     echo "✓ Dependencies already installed"
 fi
@@ -117,6 +137,15 @@ echo ""
 read -p "Would you like to start the monitoring UI now? (y/n) " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
+    # Final dependency check before starting UI
+    if ! python3 -c "import flask" 2>/dev/null; then
+        echo ""
+        echo "❌ Error: Flask is not installed. Cannot start UI."
+        echo "   Please run: pip install -r requirements.txt"
+        echo ""
+        exit 1
+    fi
+    
     echo ""
     echo "Starting UI..."
     echo "Press Ctrl+C to stop"
