@@ -267,6 +267,78 @@ def api_reasoning_by_pattern(pattern):
     })
 
 
+@app.route('/api/scan/breadcrumbs', methods=['POST'])
+def api_scan_breadcrumbs():
+    """Trigger breadcrumb scanning"""
+    if not aros_path.exists():
+        return jsonify({
+            'status': 'error',
+            'message': 'AROS repository not found. Please clone it first.'
+        }), 400
+    
+    try:
+        # Get options from request
+        data = request.get_json() or {}
+        max_files = data.get('max_files', None)
+        full_scan = data.get('full_scan', False)
+        
+        # Run scan script
+        scan_script = Path(__file__).parent.parent / 'scripts' / 'scan_breadcrumbs.py'
+        
+        cmd = ['python3', str(scan_script), str(aros_path)]
+        if max_files and not full_scan:
+            cmd.extend(['--max-files', str(max_files)])
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'Breadcrumb scan completed successfully',
+                'output': result.stdout
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Scan failed',
+                'error': result.stderr
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'status': 'error',
+            'message': 'Scan timed out after 5 minutes'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Scan failed: {str(e)}'
+        }), 500
+
+
+@app.route('/api/scan/status')
+def api_scan_status():
+    """Get scan status and last scan info"""
+    scan_log = logs_path / 'scan_latest.json'
+    
+    if scan_log.exists():
+        try:
+            with open(scan_log) as f:
+                return jsonify(json.load(f))
+        except Exception:
+            pass
+    
+    return jsonify({
+        'status': 'never_run',
+        'message': 'No scans have been run yet'
+    })
+
+
 if __name__ == '__main__':
     host = config['ui']['host']
     port = config['ui']['port']
