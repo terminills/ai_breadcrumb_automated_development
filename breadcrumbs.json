@@ -1,0 +1,35 @@
+{
+  "statistics": {
+    "total_breadcrumbs": 1,
+    "phases": {
+      "TEST_PHASE": 1
+    },
+    "statuses": {
+      "IMPLEMENTED": 1
+    },
+    "files_with_breadcrumbs": 1
+  },
+  "breadcrumbs": [
+    {
+      "file_path": "/home/runner/work/ai_breadcrumb_automated_development/ai_breadcrumb_automated_development/aros-src/test/test.c",
+      "line_number": 1,
+      "phase": "TEST_PHASE",
+      "status": "IMPLEMENTED",
+      "pattern": null,
+      "strategy": "Test strategy",
+      "details": null,
+      "ai_note": null,
+      "ai_version": null,
+      "compiler_err": null,
+      "runtime_err": null,
+      "fix_reason": null,
+      "linux_ref": null,
+      "amigaos_ref": null,
+      "aros_impl": null,
+      "ai_priority": null,
+      "ai_complexity": null,
+      "ai_dependencies": null,
+      "ai_blocks": null
+    }
+  ]
+}
