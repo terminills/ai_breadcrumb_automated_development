@@ -130,7 +130,8 @@ class CodegenModel:
         self,
         task_description: str,
         context: Dict[str, Any],
-        breadcrumb_history: Optional[List[str]] = None
+        breadcrumb_history: Optional[List[str]] = None,
+        stream: bool = False
     ) -> str:
         """
         Generate code with AI breadcrumb metadata
@@ -139,6 +140,7 @@ class CodegenModel:
             task_description: Description of the task
             context: Context information (phase, strategy, etc.)
             breadcrumb_history: Previous breadcrumb attempts
+            stream: Whether to stream generation token by token
             
         Returns:
             Generated code with breadcrumbs
@@ -151,11 +153,50 @@ class CodegenModel:
         )
         
         # Generate code
-        generated = self.generate_code(prompt, num_return_sequences=1)
+        if stream:
+            return self._generate_streaming(prompt)
+        else:
+            generated = self.generate_code(prompt, num_return_sequences=1)
+            if generated:
+                return generated[0]
+            return ""
+    
+    def _generate_streaming(self, prompt: str) -> str:
+        """Generate code with streaming output"""
+        if self.model is None:
+            raise RuntimeError("Model not loaded")
         
-        if generated:
-            return generated[0]
-        return ""
+        import torch
+        from src.streaming_output import StreamingHandler
+        
+        try:
+            # Tokenize input
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
+            
+            # Create streaming handler
+            handler = StreamingHandler()
+            
+            # Stream generation
+            full_text = ""
+            for token in handler.stream_generation(
+                self.model,
+                self.tokenizer,
+                inputs['input_ids'],
+                max_length=self.max_length,
+                temperature=self.temperature
+            ):
+                full_text += token
+                handler.callback(token)
+            
+            # Remove prompt from output
+            if full_text.startswith(prompt):
+                full_text = full_text[len(prompt):]
+            
+            return full_text.strip()
+            
+        except Exception as e:
+            logger.error(f"Error in streaming generation: {e}")
+            raise
     
     def _build_breadcrumb_prompt(
         self,

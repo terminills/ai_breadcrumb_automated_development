@@ -28,6 +28,7 @@ class SessionManager:
         
         self.current_session = None
         self.session_history = []
+        self.iteration_context = {}  # Track context across iterations
         
         # Load models
         self.codegen = None
@@ -167,7 +168,8 @@ class SessionManager:
     def generate(
         self,
         prompt: Optional[str] = None,
-        use_exploration: bool = True
+        use_exploration: bool = True,
+        stream: bool = False
     ) -> Dict[str, Any]:
         """
         Generate code for the task
@@ -175,6 +177,7 @@ class SessionManager:
         Args:
             prompt: Optional custom prompt
             use_exploration: Use exploration results in generation
+            stream: Whether to stream generation token by token
             
         Returns:
             Generation results
@@ -194,6 +197,11 @@ class SessionManager:
             latest_exploration = self.current_session['exploration_results'][-1]
             context['exploration_insights'] = latest_exploration.get('insights', '')
         
+        # Add iteration context for continuity
+        if self.iteration_context:
+            context['previous_attempts'] = self.iteration_context.get('attempts', [])
+            context['learned_patterns'] = self.iteration_context.get('patterns', [])
+        
         # Generate code with breadcrumbs
         task_desc = prompt or self.current_session['task']
         
@@ -208,22 +216,46 @@ class SessionManager:
         generated_code = self.codegen.generate_with_breadcrumbs(
             task_description=task_desc,
             context=context,
-            breadcrumb_history=breadcrumb_history if breadcrumb_history else None
+            breadcrumb_history=breadcrumb_history if breadcrumb_history else None,
+            stream=stream
         )
         
         generation_result = {
             'code': generated_code,
             'timestamp': datetime.now().isoformat(),
             'used_exploration': use_exploration,
-            'iteration': len(self.current_session['generated_code']) + 1
+            'iteration': len(self.current_session['generated_code']) + 1,
+            'streamed': stream
         }
         
         self.current_session['generated_code'].append(generation_result)
+        
+        # Update iteration context
+        self._update_iteration_context(generation_result)
         
         # Add turn to session
         self._add_turn('generate', task_desc, generation_result)
         
         return generation_result
+    
+    def _update_iteration_context(self, generation_result: Dict[str, Any]):
+        """Update context that persists across iterations"""
+        if 'attempts' not in self.iteration_context:
+            self.iteration_context['attempts'] = []
+        if 'patterns' not in self.iteration_context:
+            self.iteration_context['patterns'] = []
+        
+        # Track this attempt
+        attempt_summary = {
+            'iteration': generation_result['iteration'],
+            'timestamp': generation_result['timestamp'],
+            'code_length': len(generation_result.get('code', '')),
+            'success': not generation_result.get('error')
+        }
+        self.iteration_context['attempts'].append(attempt_summary)
+        
+        # Keep only last 5 attempts for context
+        self.iteration_context['attempts'] = self.iteration_context['attempts'][-5:]
     
     def review(
         self,
@@ -395,5 +427,22 @@ class SessionManager:
             'turns': len(self.current_session['turns']),
             'explorations': len(self.current_session['exploration_results']),
             'generations': len(self.current_session['generated_code']),
-            'started_at': self.current_session['started_at']
+            'started_at': self.current_session['started_at'],
+            'iteration_context': self.iteration_context
+        }
+    
+    def get_iteration_metrics(self) -> Dict[str, Any]:
+        """Get metrics across iterations"""
+        if not self.iteration_context.get('attempts'):
+            return {'total_attempts': 0}
+        
+        attempts = self.iteration_context['attempts']
+        successful = sum(1 for a in attempts if a.get('success', False))
+        
+        return {
+            'total_attempts': len(attempts),
+            'successful_attempts': successful,
+            'success_rate': successful / len(attempts) if attempts else 0,
+            'avg_code_length': sum(a.get('code_length', 0) for a in attempts) / len(attempts) if attempts else 0,
+            'recent_attempts': attempts[-3:] if len(attempts) >= 3 else attempts
         }

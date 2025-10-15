@@ -220,6 +220,118 @@ def test_streaming_output():
     return True
 
 
+def test_reasoning_tracker():
+    """Test reasoning tracker integration"""
+    print("\n=== Testing Reasoning Tracker ===")
+    
+    from src.compiler_loop.reasoning_tracker import ReasoningTracker
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tracker = ReasoningTracker(log_path=temp_dir)
+        
+        # Start reasoning
+        reasoning_id = tracker.start_reasoning(
+            task_id="test_task",
+            phase="analyzing",
+            breadcrumbs_consulted=["TEST_PHASE"]
+        )
+        assert reasoning_id.startswith("test_task")
+        print(f"✓ Reasoning started: {reasoning_id}")
+        
+        # Add steps
+        tracker.add_reasoning_step("Step 1: Analyzed requirements")
+        tracker.add_reasoning_step("Step 2: Identified patterns")
+        print("✓ Reasoning steps added")
+        
+        # Add pattern
+        tracker.add_pattern("TEST_PATTERN_V1")
+        print("✓ Pattern identified")
+        
+        # Set decision
+        tracker.set_decision(
+            decision_type="implementation",
+            approach="Test approach",
+            confidence=0.8,
+            complexity="MEDIUM"
+        )
+        print("✓ Decision recorded")
+        
+        # Complete reasoning
+        tracker.complete_reasoning(reasoning_id, success=True, iterations=1)
+        print("✓ Reasoning completed")
+        
+        # Get statistics
+        stats = tracker.get_statistics()
+        assert stats['total_reasoning_events'] == 1
+        assert stats['successful_decisions'] == 1
+        print(f"✓ Statistics: {stats['total_reasoning_events']} events, success rate: {stats['success_rate']:.1%}")
+        
+        return True
+
+
+def test_iteration_context():
+    """Test iteration context management"""
+    print("\n=== Testing Iteration Context ===")
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        log_path = Path(temp_dir) / 'logs'
+        
+        loader = LocalModelLoader()
+        session = SessionManager(
+            model_loader=loader,
+            aros_path=str(aros_path),
+            log_path=str(log_path)
+        )
+        
+        session.start_session(
+            task_description="Test context",
+            context={'phase': 'TEST'}
+        )
+        
+        # Check iteration context
+        assert hasattr(session, 'iteration_context')
+        print("✓ Iteration context initialized")
+        
+        # Get metrics
+        metrics = session.get_iteration_metrics()
+        assert 'total_attempts' in metrics
+        print(f"✓ Iteration metrics available: {metrics}")
+        
+        session.end_session(status='completed')
+        
+        return True
+
+
+def test_performance_tracking():
+    """Test performance metrics tracking"""
+    print("\n=== Testing Performance Tracking ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        
+        iteration = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=1
+        )
+        
+        # Verify reasoning tracker is initialized
+        assert hasattr(iteration, 'reasoning_tracker')
+        print("✓ Reasoning tracker integrated")
+        
+        # Verify current_reasoning_id tracking
+        assert hasattr(iteration, 'current_reasoning_id')
+        print("✓ Reasoning ID tracking enabled")
+        
+        return True
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*60)
@@ -232,6 +344,9 @@ def run_all_tests():
         ("File Exploration", test_file_exploration),
         ("Copilot Iteration", test_copilot_iteration_structure),
         ("Streaming Output", test_streaming_output),
+        ("Reasoning Tracker", test_reasoning_tracker),
+        ("Iteration Context", test_iteration_context),
+        ("Performance Tracking", test_performance_tracking),
     ]
     
     passed = 0

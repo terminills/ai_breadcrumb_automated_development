@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.local_models import LocalModelLoader
 from src.interactive_session import SessionManager
 from src.breadcrumb_parser import BreadcrumbParser
-from src.compiler_loop import CompilerLoop, ErrorTracker
+from src.compiler_loop import CompilerLoop, ErrorTracker, ReasoningTracker
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +58,13 @@ class CopilotStyleIteration:
         self.error_tracker = ErrorTracker(
             log_path=str(self.log_path / 'errors')
         )
+        self.reasoning_tracker = ReasoningTracker(
+            log_path=str(self.log_path / 'reasoning')
+        )
         
         self.current_iteration = 0
         self.successful_iterations = 0
+        self.current_reasoning_id = None
     
     def run_interactive_iteration(
         self,
@@ -78,6 +82,7 @@ class CopilotStyleIteration:
             Iteration results
         """
         self.current_iteration += 1
+        iteration_start_time = datetime.now()
         
         logger.info(f"\n{'='*60}")
         logger.info(f"Iteration {self.current_iteration}/{self.max_iterations}")
@@ -100,25 +105,39 @@ class CopilotStyleIteration:
         
         logger.info(f"Started session: {session_id}")
         
+        phase_timings = {}
+        
         try:
             # Phase 1: Exploration (like Copilot gathering context)
             if enable_exploration:
+                phase_start = datetime.now()
                 self._exploration_phase(task)
+                phase_timings['exploration'] = (datetime.now() - phase_start).total_seconds()
             
             # Phase 2: Reasoning (like Copilot analyzing the problem)
+            phase_start = datetime.now()
             self._reasoning_phase()
+            phase_timings['reasoning'] = (datetime.now() - phase_start).total_seconds()
             
             # Phase 3: Generation (like Copilot suggesting code)
+            phase_start = datetime.now()
             generation_result = self._generation_phase()
+            phase_timings['generation'] = (datetime.now() - phase_start).total_seconds()
             
             # Phase 4: Review (self-review of generated code)
+            phase_start = datetime.now()
             review_result = self._review_phase(generation_result)
+            phase_timings['review'] = (datetime.now() - phase_start).total_seconds()
             
             # Phase 5: Compilation & Testing
+            phase_start = datetime.now()
             compile_result = self._compilation_phase(generation_result)
+            phase_timings['compilation'] = (datetime.now() - phase_start).total_seconds()
             
             # Phase 6: Learning from results
+            phase_start = datetime.now()
             success = self._learning_phase(compile_result, review_result)
+            phase_timings['learning'] = (datetime.now() - phase_start).total_seconds()
             
             # End session
             status = 'completed' if success else 'needs_iteration'
@@ -130,13 +149,24 @@ class CopilotStyleIteration:
             if success:
                 self.successful_iterations += 1
             
+            # Calculate total time
+            total_time = (datetime.now() - iteration_start_time).total_seconds()
+            
+            # Log performance metrics
+            logger.info(f"\n--- Performance Metrics ---")
+            logger.info(f"Total iteration time: {total_time:.2f}s")
+            for phase, timing in phase_timings.items():
+                logger.info(f"{phase.capitalize()}: {timing:.2f}s ({timing/total_time*100:.1f}%)")
+            
             return {
                 'iteration': self.current_iteration,
                 'session_id': session_id,
                 'success': success,
                 'generation': generation_result,
                 'review': review_result,
-                'compilation': compile_result
+                'compilation': compile_result,
+                'timings': phase_timings,
+                'total_time': total_time
             }
             
         except Exception as e:
@@ -152,6 +182,14 @@ class CopilotStyleIteration:
         phase = task.get('phase', 'unknown')
         logger.info(f"Exploring codebase for: {phase}")
         
+        # Start reasoning tracking
+        self.current_reasoning_id = self.reasoning_tracker.start_reasoning(
+            task_id=f"iteration_{self.current_iteration}",
+            phase='analyzing',
+            breadcrumbs_consulted=[phase],
+            files_considered=[]
+        )
+        
         try:
             exploration = self.session_manager.explore(
                 query=phase,
@@ -162,9 +200,18 @@ class CopilotStyleIteration:
             logger.info(f"Found {exploration['breadcrumbs_analyzed']} relevant breadcrumbs")
             logger.info(f"Insights preview: {exploration['insights'][:200]}...")
             
+            # Track reasoning step
+            self.reasoning_tracker.add_reasoning_step(
+                f"Explored {exploration['files_analyzed']} files related to {phase}"
+            )
+            self.reasoning_tracker.add_reasoning_step(
+                f"Found {exploration['breadcrumbs_analyzed']} breadcrumbs for context"
+            )
+            
         except Exception as e:
             logger.warning(f"Exploration failed: {e}")
             logger.info("Continuing without exploration insights...")
+            self.reasoning_tracker.add_reasoning_step(f"Exploration failed: {e}")
     
     def _reasoning_phase(self):
         """Phase 2: Reason about the task like Copilot analyzing"""
@@ -175,9 +222,18 @@ class CopilotStyleIteration:
             logger.info("Reasoning completed")
             logger.info(f"Strategy preview: {reasoning['reasoning'][:200]}...")
             
+            # Track reasoning steps
+            self.reasoning_tracker.add_reasoning_step(
+                "Analyzed task requirements and context"
+            )
+            self.reasoning_tracker.add_reasoning_step(
+                f"Generated strategy: {reasoning['reasoning'][:100]}..."
+            )
+            
         except Exception as e:
             logger.warning(f"Reasoning failed: {e}")
             logger.info("Continuing with default strategy...")
+            self.reasoning_tracker.add_reasoning_step(f"Reasoning failed: {e}")
     
     def _generation_phase(self) -> Dict[str, Any]:
         """Phase 3: Generate code like Copilot suggesting"""
@@ -188,10 +244,20 @@ class CopilotStyleIteration:
             logger.info(f"Generated code (iteration {generation['iteration']})")
             logger.info(f"Code length: {len(generation['code'])} characters")
             
+            # Track decision made
+            self.reasoning_tracker.set_decision(
+                decision_type='code_generation',
+                approach=f"Generated {len(generation['code'])} chars of code",
+                confidence=0.7,
+                complexity='MEDIUM',
+                raw_thought=f"Iteration {generation['iteration']}"
+            )
+            
             return generation
             
         except Exception as e:
             logger.error(f"Generation failed: {e}")
+            self.reasoning_tracker.add_reasoning_step(f"Generation failed: {e}")
             return {
                 'code': '',
                 'error': str(e),
@@ -264,7 +330,17 @@ class CopilotStyleIteration:
         """Phase 6: Learn from compilation and review results"""
         logger.info("\n--- Phase 6: Learning ---")
         
-        if compile_result['success'] and not review_result.get('has_errors'):
+        success = compile_result['success'] and not review_result.get('has_errors')
+        
+        # Complete reasoning tracking
+        if self.current_reasoning_id:
+            self.reasoning_tracker.complete_reasoning(
+                reasoning_id=self.current_reasoning_id,
+                success=success,
+                iterations=self.current_iteration
+            )
+        
+        if success:
             logger.info("✓ Iteration successful - no errors to learn from")
             return True
         
@@ -275,15 +351,26 @@ class CopilotStyleIteration:
                     error_message=error,
                     context={
                         'iteration': self.current_iteration,
-                        'project': self.project_name
+                        'project': self.project_name,
+                        'reasoning_id': self.current_reasoning_id
                     }
                 )
                 logger.info(f"Tracked error: {error_hash[:8]}")
+                
+                # Add to reasoning
+                if self.current_reasoning_id:
+                    self.reasoning_tracker.add_reasoning_step(
+                        f"Encountered error: {error[:100]}"
+                    )
         
         # Get error statistics
         stats = self.error_tracker.get_statistics()
         logger.info(f"Error database: {stats['total_unique_errors']} unique errors")
         logger.info(f"Resolved: {stats['resolved_errors']}")
+        
+        # Get reasoning statistics
+        reasoning_stats = self.reasoning_tracker.get_statistics()
+        logger.info(f"Reasoning success rate: {reasoning_stats['success_rate']*100:.1f}%")
         
         return False
     
