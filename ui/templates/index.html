@@ -160,13 +160,32 @@
             transition: transform 0.2s, box-shadow 0.2s;
         }
         
-        button:hover {
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
         
-        button:active {
+        button:active:not(:disabled) {
             transform: translateY(0);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #quickScanBtn, #fullScanBtn {
+            flex: 1;
+            font-size: 0.9em;
+            padding: 10px 16px;
+        }
+        
+        #quickScanBtn {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        
+        #fullScanBtn {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         }
         
         .timestamp {
@@ -238,6 +257,11 @@
             <!-- Breadcrumb Statistics Card -->
             <div class="card">
                 <h2>AI Breadcrumbs</h2>
+                <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                    <button id="quickScanBtn" onclick="triggerScan(false)">Quick Scan (100 files)</button>
+                    <button id="fullScanBtn" onclick="triggerScan(true)">Full Scan</button>
+                </div>
+                <div id="scanStatus" style="margin-bottom: 10px; padding: 8px; border-radius: 5px; display: none;"></div>
                 <div class="stat">
                     <span class="stat-label">Total Breadcrumbs</span>
                     <span class="stat-value" id="totalBreadcrumbs">0</span>
@@ -579,6 +603,66 @@
             if (training) {
                 document.getElementById('trainingStatus').textContent = 
                     training.status || 'Not Started';
+            }
+        }
+        
+        // Trigger breadcrumb scan
+        async function triggerScan(fullScan) {
+            const statusDiv = document.getElementById('scanStatus');
+            const quickBtn = document.getElementById('quickScanBtn');
+            const fullBtn = document.getElementById('fullScanBtn');
+            
+            // Disable buttons during scan
+            quickBtn.disabled = true;
+            fullBtn.disabled = true;
+            
+            // Show status
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(251, 191, 36, 0.2)';
+            statusDiv.style.border = '1px solid #fbbf24';
+            statusDiv.innerHTML = '⏳ Scanning breadcrumbs...';
+            
+            try {
+                const response = await fetch('/api/scan/breadcrumbs', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        full_scan: fullScan,
+                        max_files: fullScan ? null : 100
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    statusDiv.style.background = 'rgba(74, 222, 128, 0.2)';
+                    statusDiv.style.border = '1px solid #4ade80';
+                    statusDiv.innerHTML = '✓ Scan completed successfully!';
+                    
+                    // Refresh dashboard to show new results
+                    setTimeout(() => {
+                        updateDashboard();
+                    }, 500);
+                } else {
+                    statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusDiv.style.border = '1px solid #ef4444';
+                    statusDiv.innerHTML = `✗ Scan failed: ${result.message}`;
+                }
+            } catch (error) {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.border = '1px solid #ef4444';
+                statusDiv.innerHTML = `✗ Error: ${error.message}`;
+            } finally {
+                // Re-enable buttons
+                quickBtn.disabled = false;
+                fullBtn.disabled = false;
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
             }
         }
         
