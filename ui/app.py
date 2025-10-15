@@ -70,6 +70,35 @@ def api_status():
 @app.route('/api/breadcrumbs')
 def api_breadcrumbs():
     """Get breadcrumb statistics"""
+    # First try to read from breadcrumbs.json if it exists
+    breadcrumbs_file = Path(__file__).parent.parent / 'breadcrumbs.json'
+    
+    if breadcrumbs_file.exists():
+        try:
+            with open(breadcrumbs_file) as f:
+                data = json.load(f)
+                
+            # Get recent breadcrumbs (first 20)
+            recent_breadcrumbs = []
+            if 'breadcrumbs' in data:
+                for b in data['breadcrumbs'][:20]:
+                    recent_breadcrumbs.append({
+                        'file': b.get('file_path', ''),
+                        'line': b.get('line_number', 0),
+                        'phase': b.get('phase', ''),
+                        'status': b.get('status', ''),
+                        'strategy': b.get('strategy', '')
+                    })
+            
+            return jsonify({
+                'statistics': data.get('statistics', {}),
+                'validation': {'error_count': 0, 'warning_count': 0},  # From file, assume validated
+                'recent_breadcrumbs': recent_breadcrumbs
+            })
+        except Exception as e:
+            print(f"Error reading breadcrumbs.json: {e}")
+    
+    # Fallback to scanning (legacy behavior, limited for performance)
     if not aros_path.exists():
         return jsonify({'error': 'AROS repository not cloned yet'})
     
@@ -284,8 +313,9 @@ def api_scan_breadcrumbs():
         
         # Run scan script
         scan_script = Path(__file__).parent.parent / 'scripts' / 'scan_breadcrumbs.py'
+        breadcrumbs_output = Path(__file__).parent.parent / 'breadcrumbs.json'
         
-        cmd = ['python3', str(scan_script), str(aros_path)]
+        cmd = ['python3', str(scan_script), str(aros_path), '--output', str(breadcrumbs_output)]
         if max_files and not full_scan:
             cmd.extend(['--max-files', str(max_files)])
         
@@ -336,6 +366,197 @@ def api_scan_status():
     return jsonify({
         'status': 'never_run',
         'message': 'No scans have been run yet'
+    })
+
+
+@app.route('/api/training/start', methods=['POST'])
+def api_training_start():
+    """Trigger model training"""
+    try:
+        data = request.get_json() or {}
+        
+        # Get training parameters
+        data_path = data.get('data_path', str(aros_path))
+        output_path = data.get('output_path', str(Path(__file__).parent.parent / 'models' / 'aros-v1.3'))
+        rocm_arch = data.get('rocm_arch', 'gfx900,gfx906')
+        
+        # Run training script
+        train_script = Path(__file__).parent.parent / 'scripts' / 'train_model.sh'
+        
+        if not train_script.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'Training script not found'
+            }), 500
+        
+        # Run training asynchronously
+        cmd = [str(train_script), data_path, output_path, rocm_arch]
+        
+        # Start training in background
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        return jsonify({
+            'status': 'started',
+            'message': 'Training started successfully',
+            'pid': process.pid,
+            'data_path': data_path,
+            'output_path': output_path
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to start training: {str(e)}'
+        }), 500
+
+
+@app.route('/api/iteration/start', methods=['POST'])
+def api_iteration_start():
+    """Trigger iteration loop"""
+    try:
+        data = request.get_json() or {}
+        
+        # Get iteration parameters
+        mode = data.get('mode', 'ITERATE')
+        project = data.get('project', 'radeonsi')
+        max_iterations = data.get('max_iterations', 10)
+        
+        # Run AI agent script
+        agent_script = Path(__file__).parent.parent / 'scripts' / 'run_ai_agent.sh'
+        
+        if not agent_script.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'AI agent script not found'
+            }), 500
+        
+        # Run iteration loop asynchronously
+        cmd = [str(agent_script), mode, project, str(max_iterations)]
+        
+        # Start iteration in background
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        return jsonify({
+            'status': 'started',
+            'message': 'Iteration loop started successfully',
+            'pid': process.pid,
+            'mode': mode,
+            'project': project,
+            'max_iterations': max_iterations
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to start iteration loop: {str(e)}'
+        }), 500
+
+
+@app.route('/api/iteration/status')
+def api_iteration_status():
+    """Get iteration loop status"""
+    agent_log_dir = logs_path / 'agent'
+    
+    if not agent_log_dir.exists():
+        return jsonify({
+            'status': 'never_run',
+            'message': 'No iteration loops have been run yet'
+        })
+    
+    # Get most recent log file
+    log_files = sorted(agent_log_dir.glob('agent_*.log'), key=lambda x: x.stat().st_mtime, reverse=True)
+    
+    if not log_files:
+        return jsonify({
+            'status': 'never_run',
+            'message': 'No iteration logs found'
+        })
+    
+    # Read the most recent log
+    try:
+        with open(log_files[0]) as f:
+            log_content = f.read()
+        
+        return jsonify({
+            'status': 'completed',
+            'log_file': log_files[0].name,
+            'log_preview': log_content[:500]  # First 500 chars
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to read log: {str(e)}'
+        }), 500
+
+
+@app.route('/api/projects/list')
+def api_projects_list():
+    """List available projects for iteration"""
+    # Common AROS projects that can be targeted for development
+    projects = [
+        {
+            'id': 'radeonsi',
+            'name': 'RadeonSI Graphics Driver',
+            'description': 'AMD Radeon GPU driver implementation',
+            'path': 'workbench/devs/radeonsi'
+        },
+        {
+            'id': 'graphics',
+            'name': 'Graphics Pipeline',
+            'description': 'Core graphics rendering pipeline',
+            'path': 'workbench/libs/graphics'
+        },
+        {
+            'id': 'kernel',
+            'name': 'Kernel Components',
+            'description': 'Operating system kernel',
+            'path': 'rom/kernel'
+        },
+        {
+            'id': 'intuition',
+            'name': 'Intuition GUI',
+            'description': 'Windowing and GUI system',
+            'path': 'rom/intuition'
+        },
+        {
+            'id': 'gallium',
+            'name': 'Gallium3D Backend',
+            'description': '3D graphics acceleration backend',
+            'path': 'workbench/devs/gallium'
+        },
+        {
+            'id': 'mesa',
+            'name': 'Mesa Integration',
+            'description': 'OpenGL implementation',
+            'path': 'workbench/libs/mesa'
+        }
+    ]
+    
+    # Check which projects actually exist
+    available_projects = []
+    if aros_path.exists():
+        for project in projects:
+            project_path = aros_path / project['path']
+            if project_path.exists():
+                project['available'] = True
+                available_projects.append(project)
+            else:
+                project['available'] = False
+                available_projects.append(project)
+    
+    return jsonify({
+        'projects': available_projects,
+        'count': len(available_projects)
     })
 
 

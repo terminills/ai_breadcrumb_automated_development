@@ -252,6 +252,14 @@
                     <span class="stat-label">Iteration Loop</span>
                     <span class="stat-value" id="loopStatus">--</span>
                 </div>
+                <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="triggerTraining()" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
+                        🚀 Start Training
+                    </button>
+                    <button onclick="showIterationDialog()" style="background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);">
+                        🔄 Start Iteration Loop
+                    </button>
+                </div>
             </div>
             
             <!-- Breadcrumb Statistics Card -->
@@ -604,6 +612,16 @@
                 document.getElementById('trainingStatus').textContent = 
                     training.status || 'Not Started';
             }
+            
+            // Iteration Loop Status
+            const iteration = await fetchData('/api/iteration/status');
+            if (iteration) {
+                document.getElementById('loopStatus').textContent = 
+                    iteration.status === 'completed' ? 'Completed' :
+                    iteration.status === 'running' ? 'Running' :
+                    iteration.status === 'never_run' ? 'Not Started' : 
+                    iteration.status;
+            }
         }
         
         // Trigger breadcrumb scan
@@ -663,6 +681,104 @@
                 setTimeout(() => {
                     statusDiv.style.display = 'none';
                 }, 5000);
+            }
+        }
+        
+        // Trigger training
+        async function triggerTraining() {
+            if (!confirm('Start model training? This may take a while and will use GPU resources.')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/training/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'started') {
+                    alert('Training started successfully! Check the Training Status for progress.');
+                    updateDashboard();
+                } else {
+                    alert(`Training failed: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`Error starting training: ${error.message}`);
+            }
+        }
+        
+        // Show iteration dialog
+        async function showIterationDialog() {
+            // Fetch available projects
+            const projectsResponse = await fetch('/api/projects/list');
+            const projectsData = await projectsResponse.json();
+            
+            const availableProjects = projectsData.projects.filter(p => p.available);
+            
+            if (availableProjects.length === 0) {
+                alert('No projects available. Please clone the AROS repository first.');
+                return;
+            }
+            
+            // Create a simple project selection prompt
+            let projectList = 'Available projects:\n\n';
+            availableProjects.forEach((p, i) => {
+                projectList += `${i + 1}. ${p.name} (${p.id})\n   ${p.description}\n\n`;
+            });
+            
+            const projectChoice = prompt(
+                projectList + '\nEnter project number (or project ID):',
+                '1'
+            );
+            
+            if (!projectChoice) return;
+            
+            // Parse choice
+            let selectedProject;
+            const choiceNum = parseInt(projectChoice);
+            if (!isNaN(choiceNum) && choiceNum >= 1 && choiceNum <= availableProjects.length) {
+                selectedProject = availableProjects[choiceNum - 1];
+            } else {
+                selectedProject = availableProjects.find(p => p.id === projectChoice);
+            }
+            
+            if (!selectedProject) {
+                alert('Invalid project selection');
+                return;
+            }
+            
+            const maxIterations = prompt('Maximum iterations:', '10');
+            if (!maxIterations) return;
+            
+            // Start iteration
+            try {
+                const response = await fetch('/api/iteration/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        project: selectedProject.id,
+                        max_iterations: parseInt(maxIterations),
+                        mode: 'ITERATE'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'started') {
+                    alert(`Iteration loop started for ${selectedProject.name}!`);
+                    updateDashboard();
+                } else {
+                    alert(`Failed to start iteration: ${result.message}`);
+                }
+            } catch (error) {
+                alert(`Error starting iteration: ${error.message}`);
             }
         }
         

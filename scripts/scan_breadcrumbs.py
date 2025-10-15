@@ -165,7 +165,8 @@ def main():
     parser_args.add_argument(
         '--output',
         '-o',
-        help='Output JSON file for breadcrumb data'
+        default='breadcrumbs.json',
+        help='Output JSON file for breadcrumb data (default: breadcrumbs.json)'
     )
     parser_args.add_argument(
         '--extensions',
@@ -197,10 +198,9 @@ def main():
     # Print statistics
     print_statistics(parser)
     
-    # Export to JSON if requested
-    if args.output:
-        output_file = Path(args.output)
-        export_to_json(parser, output_file)
+    # Export to JSON (always export, default to breadcrumbs.json)
+    output_file = Path(args.output)
+    export_to_json(parser, output_file)
     
     print("\n" + "="*60)
     print("✓ Scan complete!")
