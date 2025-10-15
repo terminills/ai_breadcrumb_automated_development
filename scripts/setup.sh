@@ -100,28 +100,35 @@ install_pytorch_rocm() {
         echo "✓ Detected ROCm 5.7.x - using AMD repository wheels for optimal compatibility"
         echo ""
         
-        # Install torch and torchvision from AMD repository
-        echo "Installing torch 2.0.1+rocm5.7 and torchvision 0.15.2+rocm5.7 from AMD repository..."
-        pip install --ignore-installed \
-            https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torch-2.0.1%2Brocm5.7-cp310-cp310-linux_x86_64.whl \
-            https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torchvision-0.15.2%2Brocm5.7-cp310-cp310-linux_x86_64.whl
-        
-        if [ $? -eq 0 ]; then
-            echo "✓ PyTorch and torchvision with ROCm 5.7 installed successfully"
-            
-            # Install torchaudio separately
-            echo "Installing torchaudio 2.0.2..."
-            pip install torchaudio==2.0.2
-            
-            # Force reinstall numpy<2 for compatibility
-            echo "Ensuring numpy<2 for compatibility..."
-            pip install "numpy<2" --force-reinstall
-            
-            echo "✓ ROCm 5.7 PyTorch stack installed successfully"
-            return 0
+        # Check Python version for AMD wheels compatibility
+        local python_ver=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        if [[ "$python_ver" != "3.10" ]]; then
+            echo "⚠ Warning: Python $python_ver detected, but AMD ROCm 5.7 wheels are built for Python 3.10"
+            echo "   Will attempt to use standard PyTorch installation instead..."
         else
-            echo "⚠ Warning: Failed to install PyTorch from AMD repository"
-            echo "   Falling back to standard installation..."
+            # Install torch and torchvision from AMD repository
+            echo "Installing torch 2.0.1+rocm5.7 and torchvision 0.15.2+rocm5.7 from AMD repository..."
+            pip install --ignore-installed \
+                https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torch-2.0.1%2Brocm5.7-cp310-cp310-linux_x86_64.whl \
+                https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torchvision-0.15.2%2Brocm5.7-cp310-cp310-linux_x86_64.whl
+            
+            if [ $? -eq 0 ]; then
+                echo "✓ PyTorch and torchvision with ROCm 5.7 installed successfully"
+                
+                # Install torchaudio separately
+                echo "Installing torchaudio 2.0.2..."
+                pip install torchaudio==2.0.2
+                
+                # Force reinstall numpy<2 for compatibility
+                echo "Ensuring numpy<2 for compatibility..."
+                pip install "numpy<2" --force-reinstall
+                
+                echo "✓ ROCm 5.7 PyTorch stack installed successfully"
+                return 0
+            else
+                echo "⚠ Warning: Failed to install PyTorch from AMD repository"
+                echo "   Falling back to standard installation..."
+            fi
         fi
     fi
     
