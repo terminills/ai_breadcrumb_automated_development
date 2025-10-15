@@ -14,8 +14,72 @@ echo ""
 
 # Parse arguments
 MODE="${1:-ITERATE}"
-PROJECT="${2:-radeonsi}"
+PROJECT="${2:-}"
 MAX_ITERATIONS="${3:-10}"
+
+# If no project specified, scan breadcrumbs or prompt user
+if [ -z "$PROJECT" ]; then
+    echo "No project specified. Scanning for incomplete breadcrumbs..."
+    
+    # Try to read breadcrumbs.json if it exists
+    BREADCRUMBS_FILE="$PROJECT_ROOT/breadcrumbs.json"
+    
+    if [ -f "$BREADCRUMBS_FILE" ]; then
+        # Extract incomplete tasks from breadcrumbs
+        INCOMPLETE_PHASES=$(python3 -c "
+import json
+import sys
+from pathlib import Path
+
+try:
+    with open('$BREADCRUMBS_FILE') as f:
+        data = json.load(f)
+    
+    # Find incomplete breadcrumbs (PARTIAL or NOT_STARTED)
+    incomplete = []
+    for bc in data.get('breadcrumbs', []):
+        status = bc.get('status', '')
+        phase = bc.get('phase', '')
+        if status in ['PARTIAL', 'NOT_STARTED'] and phase:
+            incomplete.append(phase)
+    
+    # Get unique phases
+    unique_phases = list(set(incomplete))
+    
+    if unique_phases:
+        print('Found incomplete phases:', ', '.join(unique_phases[:5]))
+        # Use the first one as default
+        print(unique_phases[0])
+    else:
+        print('No incomplete breadcrumbs found')
+        print('radeonsi')  # fallback
+except Exception as e:
+    print('radeonsi')  # fallback on error
+" 2>&1 | tail -1)
+        
+        if [ "$INCOMPLETE_PHASES" != "radeonsi" ]; then
+            echo "Found incomplete phase: $INCOMPLETE_PHASES"
+            PROJECT="$INCOMPLETE_PHASES"
+        else
+            echo "Using default project: radeonsi"
+            PROJECT="radeonsi"
+        fi
+    else
+        echo "No breadcrumbs.json found. Please specify a project or run breadcrumb scan first."
+        echo ""
+        echo "Usage: $0 [MODE] [PROJECT] [MAX_ITERATIONS]"
+        echo ""
+        echo "Examples:"
+        echo "  $0 ITERATE radeonsi 10"
+        echo "  $0 ITERATE graphics 5"
+        echo "  $0 ITERATE kernel 20"
+        echo ""
+        echo "Available projects: radeonsi, graphics, kernel, intuition, gallium, mesa"
+        echo ""
+        echo "Or run: ./scripts/scan_breadcrumbs.py to scan for incomplete tasks"
+        exit 1
+    fi
+fi
 
 echo "Configuration:"
 echo "  Mode: $MODE"
@@ -233,10 +297,16 @@ class AIAgent:
 
 # Main execution
 if __name__ == '__main__':
+    import sys
+    
+    # Get project from environment or command line
+    project_name = '$PROJECT' if '$PROJECT' else 'radeonsi'
+    max_iter = int('$MAX_ITERATIONS') if '$MAX_ITERATIONS' else 10
+    
     agent = AIAgent(
         aros_path=project_root / 'aros-src',
-        project_name='radeonsi',
-        max_iterations=5  # Demonstration limit
+        project_name=project_name,
+        max_iterations=max_iter
     )
     
     try:

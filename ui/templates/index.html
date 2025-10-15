@@ -553,15 +553,29 @@
                     const statusIcon = success === true ? '✓' : success === false ? '⚠' : '⏳';
                     const statusClass = success === true ? 'success-count' : success === false ? 'error-count' : '';
                     
+                    // Validate timestamp
+                    let timestamp = 'Unknown time';
+                    if (entry.timestamp) {
+                        try {
+                            const date = new Date(entry.timestamp);
+                            if (!isNaN(date.getTime())) {
+                                timestamp = date.toLocaleString();
+                            }
+                        } catch (e) {
+                            console.error('Invalid timestamp:', entry.timestamp);
+                        }
+                    }
+                    
                     const div = document.createElement('div');
                     div.className = 'log-entry';
                     div.innerHTML = `
                         <span class="${statusClass}">${statusIcon}</span>
-                        <strong>${entry.task_id}</strong> - ${entry.phase}<br>
-                        <small>${new Date(entry.timestamp).toLocaleString()}</small><br>
+                        <strong>${entry.task_id || 'Unknown task'}</strong> - ${entry.phase || 'Unknown phase'}<br>
+                        <small>${timestamp}</small><br>
                         ${entry.decision_type ? `<strong>Decision:</strong> ${entry.decision_type}<br>` : ''}
                         ${entry.approach_chosen ? `<em>${entry.approach_chosen}</em><br>` : ''}
-                        ${entry.confidence ? `<strong>Confidence:</strong> ${(entry.confidence * 100).toFixed(0)}%<br>` : ''}
+                        ${entry.confidence !== undefined && entry.confidence !== null ? 
+                            `<strong>Confidence:</strong> ${(entry.confidence * 100).toFixed(0)}%<br>` : ''}
                         ${entry.patterns_identified && entry.patterns_identified.length > 0 ? 
                             `<strong>Patterns:</strong> ${entry.patterns_identified.join(', ')}` : ''}
                     `;
@@ -609,8 +623,23 @@
             // Training Status
             const training = await fetchData('/api/training/status');
             if (training) {
-                document.getElementById('trainingStatus').textContent = 
-                    training.status || 'Not Started';
+                let statusText = 'Not Started';
+                if (training.status === 'in_progress') {
+                    const progress = training.progress_percent || 0;
+                    const epoch = training.current_epoch || 0;
+                    const total = training.total_epochs || 10;
+                    const loss = training.current_loss !== null && training.current_loss !== undefined 
+                        ? training.current_loss.toFixed(4) 
+                        : 'N/A';
+                    statusText = `In Progress (${progress.toFixed(0)}% - Epoch ${epoch}/${total}, Loss: ${loss})`;
+                } else if (training.status === 'completed') {
+                    statusText = 'Completed';
+                } else if (training.status === 'not_started') {
+                    statusText = 'Not Started';
+                } else {
+                    statusText = training.status || 'Unknown';
+                }
+                document.getElementById('trainingStatus').textContent = statusText;
             }
             
             // Iteration Loop Status
@@ -718,22 +747,38 @@
             const projectsResponse = await fetch('/api/projects/list');
             const projectsData = await projectsResponse.json();
             
-            const availableProjects = projectsData.projects.filter(p => p.available);
+            const availableProjects = projectsData.projects.filter(p => p.available !== false);
             
             if (availableProjects.length === 0) {
                 alert('No projects available. Please clone the AROS repository first.');
                 return;
             }
             
+            // Separate breadcrumb-based and predefined projects
+            const breadcrumbProjects = availableProjects.filter(p => p.from_breadcrumbs);
+            const predefinedProjects = availableProjects.filter(p => !p.from_breadcrumbs);
+            
             // Create a simple project selection prompt
-            let projectList = 'Available projects:\n\n';
-            availableProjects.forEach((p, i) => {
-                projectList += `${i + 1}. ${p.name} (${p.id})\n   ${p.description}\n\n`;
-            });
+            let projectList = '';
+            
+            if (breadcrumbProjects.length > 0) {
+                projectList += '🔍 Projects from Breadcrumb Scan (Recommended):\n\n';
+                breadcrumbProjects.forEach((p, i) => {
+                    projectList += `${i + 1}. ${p.name} (${p.id})\n   ${p.description}\n\n`;
+                });
+            }
+            
+            if (predefinedProjects.length > 0) {
+                const startIdx = breadcrumbProjects.length;
+                projectList += '\n📁 Predefined Projects:\n\n';
+                predefinedProjects.forEach((p, i) => {
+                    projectList += `${startIdx + i + 1}. ${p.name} (${p.id})\n   ${p.description}\n\n`;
+                });
+            }
             
             const projectChoice = prompt(
                 projectList + '\nEnter project number (or project ID):',
-                '1'
+                breadcrumbProjects.length > 0 ? '1' : '1'
             );
             
             if (!projectChoice) return;
