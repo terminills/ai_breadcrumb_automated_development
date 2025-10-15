@@ -55,7 +55,14 @@ Failed to clone repository
    - Visit: https://rocmdocs.amd.com/
    - Follow Ubuntu 22.04.3 instructions
 
-4. Continue without ROCm:
+4. Special handling for ROCm 5.7.1:
+   - PyTorch 2.0.1+rocm5.7 will be installed from AMD repository wheels
+   - torchvision 0.15.2+rocm5.7 will be installed from AMD repository wheels
+   - torchaudio 2.0.2 will be installed separately
+   - numpy<2 will be force reinstalled for compatibility
+   - Requires Python 3.10 for AMD wheels
+
+5. Continue without ROCm:
    - Script will use CPU-only PyTorch
    - Full functionality available
    - Training will be slower
@@ -82,6 +89,76 @@ Failed to clone repository
    ```bash
    ls -l /dev/kfd
    groups  # Should include 'render' or 'video'
+   ```
+
+### PyTorch Installation Issues
+
+#### Problem: "Cannot uninstall distutils-installed-package"
+**Symptoms:**
+```
+error: uninstall-distutils-installed-package
+× Cannot uninstall blinker 1.4
+╰─> It is a distutils installed project...
+```
+
+**Solutions:**
+1. The bootstrap script now handles this automatically with `--ignore-installed` flag
+2. If running setup.sh manually with AMD flag:
+   ```bash
+   ./scripts/setup.sh --amd
+   ```
+
+3. Manual workaround if needed:
+   ```bash
+   pip install --ignore-installed [package-name]
+   ```
+
+#### Problem: "PyTorch ROCm version mismatch"
+**Symptoms:**
+```
+⚠ Warning: Python 3.x detected, but AMD ROCm 5.7 wheels are built for Python 3.10
+```
+
+**Solutions:**
+1. Install Python 3.10 for ROCm 5.7.1:
+   ```bash
+   sudo apt-get install python3.10 python3.10-venv python3.10-dev
+   ```
+
+2. Create virtual environment with Python 3.10:
+   ```bash
+   python3.10 -m venv venv_torch_rocm
+   source venv_torch_rocm/bin/activate
+   ./scripts/bootstrap_ubuntu.sh
+   ```
+
+3. Script will fallback to standard PyTorch installation if Python version doesn't match
+
+#### Problem: "PyTorch installation fails"
+**Symptoms:**
+```
+❌ Failed to install PyTorch with ROCm support
+```
+
+**Solutions:**
+1. Check internet connectivity:
+   ```bash
+   ping -c 3 repo.radeon.com
+   curl -I https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/
+   ```
+
+2. Manual installation for ROCm 5.7.1 (Python 3.10):
+   ```bash
+   pip install --ignore-installed \
+     https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torch-2.0.1%2Brocm5.7-cp310-cp310-linux_x86_64.whl \
+     https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torchvision-0.15.2%2Brocm5.7-cp310-cp310-linux_x86_64.whl
+   pip install torchaudio==2.0.2
+   pip install "numpy<2" --force-reinstall
+   ```
+
+3. Try standard PyTorch installation:
+   ```bash
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
    ```
 
 ### Database Issues

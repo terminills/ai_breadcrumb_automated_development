@@ -156,6 +156,8 @@ This bootstrap script will:
 - Configure UI for network access
 - Verify the complete installation
 
+**Note:** For ROCm 5.7.1 systems with Python 3.10, the bootstrap script automatically uses optimized AMD repository wheels (torch 2.0.1+rocm5.7, torchvision 0.15.2+rocm5.7) for best performance and compatibility. The `--ignore-installed` flag is used to avoid distutils package conflicts.
+
 After bootstrap completes, simply run:
 ```bash
 ./start_ui.sh
