@@ -16,7 +16,8 @@ Create a system where a fine-tuned AI model can:
 ## 🔗 Related Projects
 
 - **Main AI Training Project**: [ai_breadcrumb_automated_development](https://github.com/terminills/ai_breadcrumb_automated_development)
-- **AROS Repository**: [AROS-OLD](https://github.com/terminills/AROS-OLD)
+- **AROS Repository (Private)**: [AROS-OLD](https://github.com/terminills/AROS-OLD) - Our working repository
+- **AROS Upstream**: [aros-development-team](https://github.com/aros-development-team/AROS) - Main AROS development repository
 
 ## 📚 Core Components
 
@@ -146,17 +147,23 @@ static void my_function(void) {
 # 2. Or manual setup:
 ./scripts/setup.sh          # Generic PyTorch
 ./scripts/setup.sh --amd    # AMD ROCm PyTorch (auto-detects version)
+
+# 3. Clone private AROS repository (requires GitHub token)
+export GITHUB_TOKEN="your_token_here"
 ./scripts/clone_aros.sh
 
-# 3. Start monitoring UI
+# 4. Sync with upstream AROS (keep your repo up to date)
+./scripts/update_and_verify.sh
+
+# 5. Start monitoring UI
 cd ui && python app.py
 # Open http://localhost:5000 in your browser
 
-# 4. Run the AI development loop
+# 6. Run the AI development loop
 ./scripts/run_ai_agent.sh ITERATE radeonsi 10
 ```
 
-See [SETUP.md](SETUP.md) for detailed instructions and [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details.
+See [SETUP.md](SETUP.md) for detailed instructions, [AROS_SYNC_GUIDE.md](docs/AROS_SYNC_GUIDE.md) for repository synchronization, and [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details.
 
 -----
 
