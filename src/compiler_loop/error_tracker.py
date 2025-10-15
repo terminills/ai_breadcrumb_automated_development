@@ -25,8 +25,17 @@ class ErrorTracker:
         db_file = self.log_path / 'error_database.json'
         
         if db_file.exists():
-            with open(db_file, 'r') as f:
-                self.error_database = json.load(f)
+            try:
+                with open(db_file, 'r') as f:
+                    data = json.load(f)
+                    # Ensure we have a dict
+                    if isinstance(data, dict):
+                        self.error_database = data
+                    else:
+                        self.error_database = {}
+            except (json.JSONDecodeError, IOError):
+                # If database is corrupted, start fresh
+                self.error_database = {}
     
     def save_database(self) -> None:
         """Save error database to disk"""
@@ -75,18 +84,29 @@ class ErrorTracker:
     
     def get_unresolved_errors(self) -> List[Dict[str, Any]]:
         """Get all unresolved errors"""
+        # Ensure error_database is a dict
+        if not isinstance(self.error_database, dict):
+            return []
+        
         return [
             {'hash': k, **v}
             for k, v in self.error_database.items()
-            if v['status'] == 'unresolved'
+            if isinstance(v, dict) and v.get('status') == 'unresolved'
         ]
     
     def get_error_patterns(self) -> Dict[str, int]:
         """Analyze error patterns"""
         patterns = {}
         
+        # Ensure error_database is a dict
+        if not isinstance(self.error_database, dict):
+            return patterns
+        
         for error_hash, error_data in self.error_database.items():
-            message = error_data['message'].lower()
+            if not isinstance(error_data, dict):
+                continue
+            
+            message = error_data.get('message', '').lower()
             
             # Extract error type
             if 'undefined reference' in message:
@@ -104,9 +124,13 @@ class ErrorTracker:
     
     def get_statistics(self) -> Dict[str, Any]:
         """Get error tracking statistics"""
+        # Ensure error_database is a dict
+        if not isinstance(self.error_database, dict):
+            self.error_database = {}
+        
         total_errors = len(self.error_database)
-        resolved = sum(1 for e in self.error_database.values() if e['status'] == 'resolved')
-        total_occurrences = sum(e['occurrences'] for e in self.error_database.values())
+        resolved = sum(1 for e in self.error_database.values() if isinstance(e, dict) and e.get('status') == 'resolved')
+        total_occurrences = sum(e.get('occurrences', 0) for e in self.error_database.values() if isinstance(e, dict))
         
         return {
             'total_unique_errors': total_errors,
