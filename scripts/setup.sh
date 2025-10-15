@@ -95,10 +95,40 @@ install_pytorch_rocm() {
     echo "Installing PyTorch $pytorch_ver with ROCm $rocm_ver support..."
     echo ""
     
+    # Special handling for ROCm 5.7.1 - use AMD repository wheels
+    if [[ "$rocm_ver" == "5.7" ]]; then
+        echo "✓ Detected ROCm 5.7.x - using AMD repository wheels for optimal compatibility"
+        echo ""
+        
+        # Install torch and torchvision from AMD repository
+        echo "Installing torch 2.0.1+rocm5.7 and torchvision 0.15.2+rocm5.7 from AMD repository..."
+        pip install --ignore-installed \
+            https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torch-2.0.1%2Brocm5.7-cp310-cp310-linux_x86_64.whl \
+            https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torchvision-0.15.2%2Brocm5.7-cp310-cp310-linux_x86_64.whl
+        
+        if [ $? -eq 0 ]; then
+            echo "✓ PyTorch and torchvision with ROCm 5.7 installed successfully"
+            
+            # Install torchaudio separately
+            echo "Installing torchaudio 2.0.2..."
+            pip install torchaudio==2.0.2
+            
+            # Force reinstall numpy<2 for compatibility
+            echo "Ensuring numpy<2 for compatibility..."
+            pip install "numpy<2" --force-reinstall
+            
+            echo "✓ ROCm 5.7 PyTorch stack installed successfully"
+            return 0
+        else
+            echo "⚠ Warning: Failed to install PyTorch from AMD repository"
+            echo "   Falling back to standard installation..."
+        fi
+    fi
+    
     # Format ROCm version for PyTorch URL (e.g., 5.7 -> rocm5.7)
     local rocm_url_ver="rocm${rocm_ver}"
     
-    # Install PyTorch with ROCm support
+    # Install PyTorch with ROCm support from standard repository
     pip install torch==$pytorch_ver torchvision torchaudio --index-url https://download.pytorch.org/whl/$rocm_url_ver
     
     if [ $? -eq 0 ]; then
@@ -176,8 +206,8 @@ echo ""
 # Install base dependencies (excluding torch if AMD flag is set)
 echo "Installing base dependencies..."
 if [ "$USE_AMD" = true ]; then
-    # Install all dependencies except torch
-    pip install flask>=3.0.0 transformers>=4.36.0 pyarrow>=14.0.0 datasets>=2.16.0 peft>=0.7.0 accelerate>=0.25.0 bitsandbytes>=0.41.0 GitPython>=3.1.40 watchdog>=3.0.0 psutil>=5.9.0 colorama>=0.4.6 pyyaml>=6.0 tqdm>=4.66.0
+    # Install all dependencies except torch, using --ignore-installed to avoid distutils conflicts
+    pip install --ignore-installed flask>=3.0.0 transformers>=4.36.0 pyarrow>=14.0.0 datasets>=2.16.0 peft>=0.7.0 accelerate>=0.25.0 bitsandbytes>=0.41.0 GitPython>=3.1.40 watchdog>=3.0.0 psutil>=5.9.0 colorama>=0.4.6 pyyaml>=6.0 tqdm>=4.66.0
 else
     # Just use requirements.txt
     true  # Will be handled below
