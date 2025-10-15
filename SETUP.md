@@ -41,18 +41,52 @@ Alternative quick setup (includes all steps):
 
 ### 2. Clone AROS Repository
 
-This will clone the AROS Development Team's repository for training:
+This will clone the AROS-OLD repository (private) for training:
 
 ```bash
+# Set GitHub token for private repository access
+export GITHUB_TOKEN="your_github_token_here"
+
+# Clone the repository
 ./scripts/clone_aros.sh
 ```
 
 The script will:
-- Clone the AROS repository to `aros-src/`
+- Clone the AROS-OLD repository to `aros-src/` using GitHub token authentication
+- Add upstream remote pointing to aros-development-team/AROS
 - Display repository statistics
 - Prepare for AI training
 
-### 3. Start the Monitoring UI
+**Note**: The repository at https://github.com/terminills/AROS-OLD is private and requires a GitHub token. You can create a personal access token at: https://github.com/settings/tokens
+
+### 3. Sync with Upstream AROS (Optional but Recommended)
+
+Keep your AROS-OLD repository up to date with the latest changes from the main AROS development team:
+
+```bash
+# Sync and verify in one command
+./scripts/update_and_verify.sh
+
+# Or sync only (without build verification)
+./scripts/sync_aros_upstream.sh
+
+# Or verify build only (without syncing)
+./scripts/verify_aros_build.sh
+```
+
+The sync script will:
+- Fetch latest changes from aros-development-team/AROS
+- Merge changes into your local repository
+- Handle merge conflicts (if any)
+- Display commit summary
+
+The verification script will:
+- Check build prerequisites
+- Run syntax checks on modified files
+- Verify compilation succeeds
+- Generate build logs for troubleshooting
+
+### 4. Start the Monitoring UI
 
 Launch the web-based monitoring interface:
 
@@ -69,7 +103,7 @@ The UI provides real-time monitoring of:
 - Error tracking and patterns
 - Training status
 
-### 4. Train the Model (Optional)
+### 5. Train the Model (Optional)
 
 For full AI capabilities, train the model on AROS codebase:
 
@@ -85,7 +119,7 @@ This will:
 
 **Note**: Full training requires AMD Instinct GPUs with ROCm. The current script demonstrates the training process.
 
-### 5. Run the AI Agent
+### 6. Run the AI Agent
 
 Start the autonomous development loop:
 
@@ -277,13 +311,25 @@ cat logs/errors/error_database.json | jq
 
 ## Troubleshooting
 
+### GitHub Token Authentication
+
+```bash
+Error: Authentication failed
+```
+
+Solution: 
+1. Create a GitHub Personal Access Token at https://github.com/settings/tokens
+2. Grant "repo" access scope
+3. Export the token: `export GITHUB_TOKEN="your_token_here"`
+4. Run the clone script again
+
 ### AROS Repository Not Found
 
 ```bash
 Error: AROS repository not found
 ```
 
-Solution: Run `./scripts/clone_aros.sh`
+Solution: Run `./scripts/clone_aros.sh` with GitHub token set
 
 ### Port Already in Use
 
@@ -300,6 +346,31 @@ ModuleNotFoundError: No module named 'flask'
 ```
 
 Solution: Install dependencies: `pip install -r requirements.txt`
+
+### Merge Conflicts During Sync
+
+```bash
+✗ Merge conflicts detected!
+```
+
+Solution:
+1. The script will list conflicting files
+2. Edit each file to resolve conflicts
+3. Run: `git add <resolved-file>`
+4. Run: `git commit`
+5. Verify the build: `./scripts/verify_aros_build.sh`
+
+### Build Verification Failures
+
+```bash
+✗ Syntax errors detected
+```
+
+Solution:
+1. Check the build log in `logs/build/`
+2. Fix syntax errors in the reported files
+3. Re-run: `./scripts/verify_aros_build.sh`
+4. If errors persist after upstream sync, this may indicate compatibility issues that need manual fixing
 
 ## Next Steps
 

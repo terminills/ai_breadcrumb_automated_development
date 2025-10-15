@@ -1,6 +1,8 @@
 {
-  "aros_repo_url": "https://github.com/aros-development-team/AROS.git",
+  "aros_repo_url": "https://github.com/terminills/AROS-OLD.git",
+  "aros_upstream_url": "https://github.com/aros-development-team/AROS.git",
   "aros_local_path": "./aros-src",
+  "github_token_env": "GITHUB_TOKEN",
   "model_path": "./models",
   "logs_path": "./logs",
   "rocm_version": "5.7.1",
