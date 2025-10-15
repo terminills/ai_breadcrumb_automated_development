@@ -191,9 +191,10 @@ class ReasoningTracker:
     
     def get_recent_reasoning(self, limit: int = 10) -> List[Dict[str, Any]]:
         """Get most recent reasoning entries"""
-        # Get recent reasoning files
+        # Get recent reasoning files (excluding the database file)
         reasoning_files = sorted(
-            self.log_path.glob('reasoning_*.json'),
+            [f for f in self.log_path.glob('reasoning_*.json') 
+             if f.name != 'reasoning_database.json'],
             key=lambda x: x.stat().st_mtime,
             reverse=True
         )[:limit]

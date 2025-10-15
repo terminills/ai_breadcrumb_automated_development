@@ -104,10 +104,11 @@ echo "Starting AI Agent at $(date)" | tee "$LOG_FILE"
 echo "" | tee -a "$LOG_FILE"
 
 # Run the AI agent Python script
-python3 << 'PYTHON_SCRIPT'
+PROJECT_NAME="$PROJECT" MAX_ITER="$MAX_ITERATIONS" python3 << 'PYTHON_SCRIPT'
 import sys
 import json
 import time
+import os
 from pathlib import Path
 from datetime import datetime
 
@@ -299,9 +300,9 @@ class AIAgent:
 if __name__ == '__main__':
     import sys
     
-    # Get project from environment or command line
-    project_name = '$PROJECT' if '$PROJECT' else 'radeonsi'
-    max_iter = int('$MAX_ITERATIONS') if '$MAX_ITERATIONS' else 10
+    # Get project from environment variables
+    project_name = os.environ.get('PROJECT_NAME', 'radeonsi')
+    max_iter = int(os.environ.get('MAX_ITER', '10'))
     
     agent = AIAgent(
         aros_path=project_root / 'aros-src',
