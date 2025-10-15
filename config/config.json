@@ -17,7 +17,9 @@
     "max_iterations": 100,
     "compile_timeout": 300,
     "error_log_path": "logs/errors",
-    "breadcrumb_validation": true
+    "reasoning_log_path": "logs/reasoning",
+    "breadcrumb_validation": true,
+    "capture_thought_process": true
   },
   "ui": {
     "host": "0.0.0.0",
