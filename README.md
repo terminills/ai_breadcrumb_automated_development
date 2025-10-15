@@ -291,7 +291,7 @@ The system can implement FIFO Round Robin scheduling for fairness:
 - Predictable behavior
 - Natural backpressure mechanism
 
-See comments in issue for full distributed AI specification.
+See [Distributed AI Development Guide](docs/DISTRIBUTED_AI_GUIDE.md) for detailed documentation and [issue comments](#) for full distributed AI specification.
 
 -----
 
