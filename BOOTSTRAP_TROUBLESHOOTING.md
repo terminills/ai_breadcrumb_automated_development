@@ -40,32 +40,83 @@ Failed to clone repository
 ```
 
 **Solutions:**
-1. Verify ROCm installation:
+1. **Use automatic installation (Ubuntu 22.04.3 only)**:
+   - The bootstrap script will offer to install ROCm 5.7.1 automatically
+   - Answer 'y' when prompted: "Install ROCm 5.7.1? (y/n)"
+   - Installation handles DKMS compatibility issues automatically
+
+2. Verify ROCm installation:
    ```bash
    rocminfo
    /opt/rocm/bin/rocminfo
    ```
 
-2. Check ROCm version:
+3. Check ROCm version:
    ```bash
    cat /opt/rocm/.info/version
    ```
 
-3. Install ROCm 5.7.1:
+4. Manual ROCm 5.7.1 installation:
    - Visit: https://rocmdocs.amd.com/
    - Follow Ubuntu 22.04.3 instructions
 
-4. Special handling for ROCm 5.7.1:
+5. Special handling for ROCm 5.7.1:
    - PyTorch 2.0.1+rocm5.7 will be installed from AMD repository wheels
    - torchvision 0.15.2+rocm5.7 will be installed from AMD repository wheels
    - torchaudio 2.0.2 will be installed separately
    - numpy<2 will be force reinstalled for compatibility
    - Requires Python 3.10 for AMD wheels
 
-5. Continue without ROCm:
+6. Continue without ROCm:
    - Script will use CPU-only PyTorch
    - Full functionality available
    - Training will be slower
+
+#### Problem: "DKMS module installation failed" or "rocminfo shows version 1.1"
+**Symptoms:**
+```
+DKMS module installation failed
+amdgpu module version shows 1.1 instead of 5.7.1
+```
+
+**Explanation:**
+Ubuntu 22.04.3 has compatibility issues with DKMS modules from newer ROCm packages. The bootstrap script addresses this by:
+- Installing ROCm 5.7.1 without DKMS drivers
+- Using the kernel's built-in amdgpu driver
+- The kernel module may show version 1.1, but this is expected and correct
+- ROCm 5.7.1 userspace tools and libraries are fully functional
+
+**Solutions:**
+1. **Automatic fix (recommended)**:
+   - Run the bootstrap script: `./scripts/bootstrap_ubuntu.sh`
+   - When prompted, choose to install ROCm 5.7.1
+   - Script installs ROCm without DKMS automatically
+
+2. Verify ROCm is working despite version mismatch:
+   ```bash
+   rocminfo | grep "Runtime Version"  # Should show 5.7.x
+   cat /opt/rocm/.info/version        # Should show 5.7.1
+   rocm-smi                           # Should detect GPU
+   ```
+
+3. Manual installation without DKMS:
+   ```bash
+   # Add ROCm repository
+   wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add -
+   echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main" | sudo tee /etc/apt/sources.list.d/rocm.list
+   sudo apt update
+   
+   # Install ROCm without DKMS
+   sudo apt install -y rocm-dev rocm-libs rocm-utils rocminfo rocm-smi hip-runtime-amd hip-dev
+   
+   # Add user to groups
+   sudo usermod -a -G video,render $USER
+   ```
+
+4. After installation:
+   - Log out and back in for group changes
+   - Verify with: `rocminfo` and `rocm-smi`
+   - The kernel module version (1.1) is expected and does not affect functionality
 
 #### Problem: "No compatible AMD GPU detected"
 **Symptoms:**

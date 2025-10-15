@@ -5,12 +5,14 @@ Use this checklist to verify your bootstrap installation.
 ## Pre-Bootstrap Checklist
 
 - [ ] Ubuntu 22.04.3 installed
-- [ ] ROCm 5.7.1 installed (optional, for GPU support)
+- [ ] ROCm 5.7.1 installed (optional, for GPU support) - OR can be installed by bootstrap script
 - [ ] AMD GPU validated (MI25, MI60, etc.) (optional)
 - [ ] Internet connection active
 - [ ] 20GB+ free disk space
 - [ ] Python 3.8+ installed
 - [ ] Git installed
+
+**Note**: The bootstrap script can now automatically install ROCm 5.7.1 for Ubuntu 22.04.3 if not already present. It handles DKMS module compatibility issues by installing ROCm without DKMS drivers.
 
 ## Bootstrap Process Checklist
 
@@ -18,7 +20,8 @@ Use this checklist to verify your bootstrap installation.
 - [ ] Provided GitHub token when prompted
 - [ ] Token saved to `~/.aros_github_token`
 - [ ] System dependencies installed
-- [ ] ROCm detected (if applicable)
+- [ ] ROCm installation offered (if Ubuntu 22.04.3 and not detected)
+- [ ] ROCm detected or installed (if applicable)
 - [ ] GPU validated (if applicable)
 - [ ] AROS-OLD repository cloned
 - [ ] Upstream remote configured
