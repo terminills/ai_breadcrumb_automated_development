@@ -137,8 +137,10 @@ class LocalLLM:
             response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
             # Extract just the response (remove prompt)
-            if response.startswith(prompt):
-                response = response[len(prompt):].strip()
+            marker = "Assistant: "
+            idx = response.rfind(marker)
+            if idx != -1:
+                response = response[idx + len(marker):].strip()
             
             return response
             
