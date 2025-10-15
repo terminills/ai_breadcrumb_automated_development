@@ -1,6 +1,109 @@
-[![UI Dashboard](https://github.com/user-attachments/assets/4bb69316-135c-4b3c-8035-e4d5e37a255c)](https://github.com/user-attachments/assets/4bb69316-135c-4b3c-8035-e4d5e37a255c)
+# AROS AI Autonomous Development System
 
-## 🚀 Quick Start
+This repository contains the foundation for the AROS-Cognito project - a fully autonomous, self-evolving operating system development system powered by AI and guided by the AI Breadcrumb System.
+
+## 🎯 Project Vision
+
+Create a system where a fine-tuned AI model can:
+
+- Understand AROS codebase architecture and patterns
+- Generate new code with comprehensive context
+- Compile and test its own code
+- Learn from compiler errors and runtime failures
+- Iterate until code is production-ready
+- Document its reasoning and decisions
+
+## 🔗 Related Projects
+
+- **Main AI Training Project**: [ai_breadcrumb_automated_development](https://github.com/terminills/ai_breadcrumb_automated_development)
+- **AROS Repository**: [AROS-OLD](https://github.com/terminills/AROS-OLD)
+
+## 📚 Core Components
+
+### 1. AI Breadcrumb System
+
+A structured metadata system that transforms AI-generated code from a "black box" into a transparent, self-documenting, and accountable system.
+
+**Key Documentation:**
+- [AI_BREADCRUMB_GUIDE.md](https://github.com/terminills/AROS-OLD/blob/master/AI_BREADCRUMB_GUIDE.md) - Complete breadcrumb system guide
+- [compiler/include/aros/ai_metadata.h](https://github.com/terminills/AROS-OLD/blob/master/compiler/include/aros/ai_metadata.h) - Metadata standard definition
+- [CONTRIBUTING.md](https://github.com/terminills/AROS-OLD/blob/master/CONTRIBUTING.md) - Contribution guidelines with breadcrumb usage
+
+**Core Principle**: "What and Why are more important than How"
+
+### 2. Seed Training Examples
+
+Comprehensive examples demonstrating the complete AI development lifecycle from planning through errors to production code.
+
+**Location**: [examples/](https://github.com/terminills/AROS-OLD/blob/master/examples)
+
+**Key Examples:**
+- `ai_autonomous_seed_kernel_init.c` - Kernel memory initialization (6 iterations)
+- `ai_autonomous_seed_graphics.c` - Graphics shader compilation (8 iterations)
+- `ai_breadcrumb_enhanced_demo.c` - Comprehensive tag usage
+
+**Documentation**: [examples/AUTONOMOUS_AI_DEVELOPMENT_README.md](https://github.com/terminills/AROS-OLD/blob/master/examples/AUTONOMOUS_AI_DEVELOPMENT_README.md)
+
+### 3. Validation and Extraction Tools
+
+**Validation Script**: [scripts/validate_ai_breadcrumbs.sh](https://github.com/terminills/AROS-OLD/blob/master/scripts/validate_ai_breadcrumbs.sh)
+- Validates breadcrumb format and completeness
+- Checks for required tags (AI_PHASE, AI_STATUS)
+- Verifies tag consistency
+
+**Extraction Script**: [scripts/extract_ai_training_data.sh](https://github.com/terminills/AROS-OLD/blob/master/scripts/extract_ai_training_data.sh)
+- Extracts breadcrumb metadata for AI training
+- Supports JSON, CSV, and text formats
+- Correlates code versions via AI_TRAIN_HASH
+
+## 🚀 Getting Started
+
+### For AI Training
+
+Extract training data from seed examples:
+
+```bash
+# Extract as JSON for model training
+./scripts/extract_ai_training_data.sh -f json -o training_data.json examples/
+
+# Extract as CSV for analysis
+./scripts/extract_ai_training_data.sh -f csv -o training_data.csv examples/
+
+# Extract from entire RadeonSI driver
+./scripts/extract_ai_training_data.sh workbench/hidds/radeonsi/
+```
+
+### For Validation
+
+Validate breadcrumbs in your code:
+
+```bash
+# Validate a single file
+./scripts/validate_ai_breadcrumbs.sh path/to/file.c
+
+# Validate a directory
+./scripts/validate_ai_breadcrumbs.sh -v workbench/hidds/radeonsi/
+
+# Validate all examples
+cd examples/ && make validate
+```
+
+### For Development
+
+Create new code with breadcrumbs:
+
+```c
+#include <aros/ai_metadata.h>
+
+// AI_PHASE: FEATURE_DEVELOPMENT
+// AI_STATUS: IMPLEMENTED
+// AI_STRATEGY: Implement feature using proven patterns
+static void my_function(void) {
+    // Implementation
+}
+```
+
+## 🚀 Quick Start (Development Environment)
 
 ```bash
 # 1. Quick setup (one command)
@@ -135,6 +238,60 @@ The primary operation is an iterative script that executes the AI's next planned
 # This script orchestrates the full loop: Read Breadcrumbs -> Generate Code -> Compile -> Log Errors
 ./scripts/run_ai_agent.sh --mode ITERATE --project radeonsi
 ```
+
+-----
+
+## 🌐 Distributed AI Development (Experimental)
+
+The breadcrumb system supports distributed AI development where multiple AI agents can work on different tasks concurrently. This experimental feature enables:
+
+### Distribution Fields
+
+The following fields support distributed task assignment and coordination:
+
+- **AI_ASSIGNED_TO**: Agent identifier currently working on this task
+- **AI_CLAIMED_AT**: ISO 8601 timestamp when the task was claimed
+- **AI_ESTIMATED_TIME**: Estimated time to complete (e.g., "2.5h", "45m")
+- **AI_PRIORITY**: Task priority from 1-10 (10 being highest)
+- **AI_DEPENDENCIES**: Comma-separated list of phases that must complete first
+- **AI_BLOCKS**: Comma-separated list of phases blocked by this task
+- **AI_COMPLEXITY**: Complexity level (LOW, MEDIUM, HIGH, CRITICAL)
+- **AI_BOUNTY**: Optional economic incentive for completion
+- **AI_TIMEOUT**: ISO 8601 timestamp when task times out
+- **AI_RETRY_COUNT**: Current number of retry attempts
+- **AI_MAX_RETRIES**: Maximum allowed retries before escalation
+
+### Example: Distributed Task Assignment
+
+```c
+// AI_PHASE: SHADER_COMPILATION
+// AI_STATUS: PARTIAL
+// AI_ASSIGNED_TO: agent_7f3a9b
+// AI_CLAIMED_AT: 2025-10-15T14:32:00Z
+// AI_ESTIMATED_TIME: 2.5h
+// AI_PRIORITY: 5
+// AI_DEPENDENCIES: LLVM_INIT, MEMORY_MANAGER
+// AI_BLOCKS: RENDER_PIPELINE, TEXTURE_UPLOAD
+// AI_COMPLEXITY: MEDIUM
+// AI_TIMEOUT: 2025-10-15T17:02:00Z
+// AI_RETRY_COUNT: 0
+// AI_MAX_RETRIES: 3
+// AI_STRATEGY: Implement shader compilation using LLVM backend
+static BOOL compile_shader(struct ShaderContext *ctx)
+{
+    // Implementation
+}
+```
+
+### Orchestration Strategy
+
+The system can implement FIFO Round Robin scheduling for fairness:
+- Each agent gets equal opportunity
+- No agent starvation
+- Predictable behavior
+- Natural backpressure mechanism
+
+See [Distributed AI Development Guide](docs/DISTRIBUTED_AI_GUIDE.md) for detailed documentation and [issue comments](#) for full distributed AI specification.
 
 -----
 
@@ -276,6 +433,20 @@ int init_issue_tracking(void) {
 ### AI Context Block
 
 - **AI_CONTEXT**: JSON block containing structured context information
+
+### Distributed AI Development Tags (Experimental)
+
+- **AI_ASSIGNED_TO**: Agent identifier currently working on this task (e.g., "agent_7f3a9b")
+- **AI_CLAIMED_AT**: ISO 8601 timestamp when the task was claimed
+- **AI_ESTIMATED_TIME**: Estimated time to complete (e.g., "2.5h", "45m")
+- **AI_PRIORITY**: Task priority from 1-10 (10 being highest)
+- **AI_DEPENDENCIES**: Comma-separated list of phases that must complete first
+- **AI_BLOCKS**: Comma-separated list of phases blocked by this task
+- **AI_COMPLEXITY**: Complexity level (LOW, MEDIUM, HIGH, CRITICAL)
+- **AI_BOUNTY**: Optional economic incentive for completion
+- **AI_TIMEOUT**: ISO 8601 timestamp when task times out
+- **AI_RETRY_COUNT**: Current number of retry attempts
+- **AI_MAX_RETRIES**: Maximum allowed retries before escalation
 
 ## Examples
 

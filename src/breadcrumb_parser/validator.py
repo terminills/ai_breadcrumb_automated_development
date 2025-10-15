@@ -16,6 +16,8 @@ class BreadcrumbValidator:
         'NOT_STARTED', 'PARTIAL', 'IMPLEMENTED', 'FIXED', 'NEEDS_REFACTOR'
     ]
     
+    VALID_COMPLEXITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+    
     def __init__(self):
         self.errors: List[Dict[str, Any]] = []
         self.warnings: List[Dict[str, Any]] = []
@@ -25,8 +27,15 @@ class BreadcrumbValidator:
         is_valid = True
         
         # Check required tags
+        # Map tag names to attribute names
+        tag_to_attr = {
+            'AI_PHASE': 'phase',
+            'AI_STATUS': 'status'
+        }
+        
         for tag in self.REQUIRED_TAGS:
-            if not getattr(breadcrumb, tag.lower().replace('_', '_'), None):
+            attr_name = tag_to_attr.get(tag, tag.lower())
+            if not getattr(breadcrumb, attr_name, None):
                 self.errors.append({
                     'file': breadcrumb.file_path,
                     'line': breadcrumb.line_number,
@@ -59,6 +68,31 @@ class BreadcrumbValidator:
                     'error': 'AI_CONTEXT must be valid JSON'
                 })
                 is_valid = False
+        
+        # Validate distributed AI fields
+        if breadcrumb.ai_complexity:
+            if breadcrumb.ai_complexity not in self.VALID_COMPLEXITIES:
+                self.warnings.append({
+                    'file': breadcrumb.file_path,
+                    'line': breadcrumb.line_number,
+                    'warning': f'Invalid complexity: {breadcrumb.ai_complexity}. Expected one of {self.VALID_COMPLEXITIES}'
+                })
+        
+        if breadcrumb.ai_priority:
+            try:
+                priority = int(breadcrumb.ai_priority)
+                if not 1 <= priority <= 10:
+                    self.warnings.append({
+                        'file': breadcrumb.file_path,
+                        'line': breadcrumb.line_number,
+                        'warning': f'Priority should be between 1-10, got {priority}'
+                    })
+            except ValueError:
+                self.warnings.append({
+                    'file': breadcrumb.file_path,
+                    'line': breadcrumb.line_number,
+                    'warning': f'Priority must be a number, got {breadcrumb.ai_priority}'
+                })
         
         return is_valid
     

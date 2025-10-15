@@ -19,7 +19,11 @@ TAG_SET = {
     'REF_GITHUB_ISSUE', 'REF_PR', 'REF_TROUBLE_TICKET',
     'REF_USER_FEEDBACK', 'REF_AUDIT_LOG',
     'HUMAN_OVERRIDE', 'PREVIOUS_IMPLEMENTATION_REF', 'CORRECTION_REF',
-    'AI_CONTEXT'
+    'AI_CONTEXT',
+    # Distributed AI Development Fields
+    'AI_ASSIGNED_TO', 'AI_CLAIMED_AT', 'AI_ESTIMATED_TIME', 'AI_PRIORITY',
+    'AI_DEPENDENCIES', 'AI_BLOCKS', 'AI_COMPLEXITY', 'AI_BOUNTY',
+    'AI_TIMEOUT', 'AI_RETRY_COUNT', 'AI_MAX_RETRIES'
 }
 
 
@@ -53,6 +57,18 @@ class Breadcrumb:
     previous_implementation_ref: Optional[str] = None
     correction_ref: Optional[str] = None
     ai_context: Optional[Dict[str, Any]] = None
+    # Distributed AI Development Fields
+    ai_assigned_to: Optional[str] = None
+    ai_claimed_at: Optional[str] = None
+    ai_estimated_time: Optional[str] = None
+    ai_priority: Optional[str] = None
+    ai_dependencies: Optional[str] = None
+    ai_blocks: Optional[str] = None
+    ai_complexity: Optional[str] = None
+    ai_bounty: Optional[str] = None
+    ai_timeout: Optional[str] = None
+    ai_retry_count: Optional[str] = None
+    ai_max_retries: Optional[str] = None
     raw_tags: Dict[str, str] = field(default_factory=dict)
 
 
@@ -251,6 +267,18 @@ class BreadcrumbParser:
             previous_implementation_ref=tags.get('PREVIOUS_IMPLEMENTATION_REF'),
             correction_ref=tags.get('CORRECTION_REF'),
             ai_context=tags.get('AI_CONTEXT'),
+            # Distributed AI Development Fields
+            ai_assigned_to=tags.get('AI_ASSIGNED_TO'),
+            ai_claimed_at=tags.get('AI_CLAIMED_AT'),
+            ai_estimated_time=tags.get('AI_ESTIMATED_TIME'),
+            ai_priority=tags.get('AI_PRIORITY'),
+            ai_dependencies=tags.get('AI_DEPENDENCIES'),
+            ai_blocks=tags.get('AI_BLOCKS'),
+            ai_complexity=tags.get('AI_COMPLEXITY'),
+            ai_bounty=tags.get('AI_BOUNTY'),
+            ai_timeout=tags.get('AI_TIMEOUT'),
+            ai_retry_count=tags.get('AI_RETRY_COUNT'),
+            ai_max_retries=tags.get('AI_MAX_RETRIES'),
             raw_tags=tags
         )
     
