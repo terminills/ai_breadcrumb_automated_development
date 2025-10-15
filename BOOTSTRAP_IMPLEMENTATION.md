@@ -1,7 +1,7 @@
 # Ubuntu 22.04.3 Bootstrap Implementation Summary
 
 ## Overview
-This implementation provides a complete, one-command bootstrap solution for setting up the AROS-Cognito AI Development System on Ubuntu 22.04.3 with ROCm 5.7.1.
+This implementation provides a complete, one-command bootstrap solution for setting up the AROS-Cognito AI Development System on Ubuntu 22.04.3 with automated ROCm 5.7.1 installation.
 
 ## Issue Requirements Met
 
@@ -9,6 +9,15 @@ This implementation provides a complete, one-command bootstrap solution for sett
 - **Script**: `scripts/bootstrap_ubuntu.sh`
 - **Features**: Fully automated setup from scratch
 - **Validated**: Ubuntu 22.04.3 and ROCm 5.7.1
+- **ROCm Installation**: Automated installation with DKMS compatibility handling
+
+### ✓ ROCm 5.7.1 Installation for Ubuntu 22.04.3
+- **Automatic Detection**: Checks for existing ROCm installation
+- **Installation Prompt**: Offers to install ROCm 5.7.1 if not detected (Ubuntu 22.04.3 only)
+- **DKMS Workaround**: Installs ROCm without DKMS drivers to avoid kernel module issues
+- **Version Handling**: Correctly installs ROCm 5.7.1 even when kernel module shows 1.1
+- **Environment Setup**: Automatically configures PATH and LD_LIBRARY_PATH
+- **User Groups**: Adds user to video and render groups for GPU access
 
 ### ✓ GitHub Token Management
 - **First Run**: Prompts for token with clear instructions
@@ -42,7 +51,8 @@ This implementation provides a complete, one-command bootstrap solution for sett
 **Key Functions:**
 - `check_ubuntu_version()` - Validates OS
 - `install_system_dependencies()` - Installs packages
-- `check_rocm()` - Validates ROCm 5.7.1 and GPU
+- `install_rocm_5_7_1()` - Installs ROCm 5.7.1 with DKMS workaround (new)
+- `check_rocm()` - Validates ROCm and offers installation if needed
 - `get_github_token()` - Manages token
 - `clone_repositories()` - Clones both repos
 - `initialize_database()` - Creates initial schema

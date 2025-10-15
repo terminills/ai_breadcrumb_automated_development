@@ -2,11 +2,18 @@
 # Ubuntu 22.04.3 Bootstrap Script for AROS-Cognito AI Development System
 # This script provides a complete setup from scratch including:
 # - System dependency installation
-# - ROCm validation (5.7.1)
+# - ROCm 5.7.1 installation (optional, for Ubuntu 22.04.3)
+# - ROCm validation and GPU detection
 # - GitHub token management and repo cloning
 # - Database schema initialization
 # - UI configuration for network access
 # - PyTorch with ROCm support
+#
+# ROCm 5.7.1 Note:
+# Ubuntu 22.04.3 has DKMS module issues with newer ROCm versions.
+# This script installs ROCm 5.7.1 without DKMS, using kernel's built-in
+# amdgpu driver. The kernel module may report version 1.1, but ROCm 5.7.1
+# userspace tools and libraries are correctly installed and functional.
 
 set -e
 
@@ -167,6 +174,82 @@ detect_rocm_version() {
     return 1
 }
 
+# Function to install ROCm 5.7.1 for Ubuntu 22.04.3
+install_rocm_5_7_1() {
+    print_info "Installing ROCm 5.7.1 for Ubuntu 22.04.3..."
+    echo ""
+    
+    # Check if we need sudo
+    if [ "$EUID" -ne 0 ]; then
+        SUDO="sudo"
+    else
+        SUDO=""
+    fi
+    
+    # Ubuntu 22.04.3 has DKMS issues with newer ROCm versions
+    # Force ROCm 5.7.1 which uses older kernel modules that work
+    print_info "Setting up ROCm repository for version 5.7.1..."
+    
+    # Add ROCm repository key
+    print_info "Adding ROCm GPG key..."
+    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | $SUDO apt-key add - 2>/dev/null || {
+        # Fallback for newer apt that doesn't support apt-key
+        wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | $SUDO tee /etc/apt/trusted.gpg.d/rocm.gpg > /dev/null
+    }
+    
+    # Add ROCm 5.7.1 repository (ubuntu focal/jammy)
+    print_info "Adding ROCm 5.7.1 repository..."
+    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main" | $SUDO tee /etc/apt/sources.list.d/rocm.list
+    
+    # Set repository priority to prefer ROCm 5.7.1
+    print_info "Setting repository priority..."
+    echo -e "Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600" | $SUDO tee /etc/apt/preferences.d/rocm-pin-600
+    
+    # Update package list
+    print_info "Updating package lists..."
+    $SUDO apt-get update -qq
+    
+    # Install ROCm 5.7.1 (without DKMS - uses existing kernel modules)
+    print_info "Installing ROCm 5.7.1 packages (this may take several minutes)..."
+    print_warning "Note: Installing without DKMS due to Ubuntu 22.04.3 compatibility issues"
+    
+    # Install core ROCm packages without kernel driver (amdgpu-dkms)
+    # This allows using the kernel's built-in amdgpu driver which shows as 1.1
+    $SUDO apt-get install -y -qq \
+        rocm-dev \
+        rocm-libs \
+        rocm-utils \
+        rocminfo \
+        rocm-smi \
+        hip-runtime-amd \
+        hip-dev || {
+        print_error "Failed to install ROCm packages"
+        return 1
+    }
+    
+    # Add user to render and video groups for GPU access
+    print_info "Adding user to video and render groups..."
+    $SUDO usermod -a -G video,render $USER 2>/dev/null || true
+    
+    # Set up environment
+    print_info "Configuring ROCm environment..."
+    if ! grep -q "/opt/rocm/bin" ~/.bashrc 2>/dev/null; then
+        echo 'export PATH=$PATH:/opt/rocm/bin:/opt/rocm/opencl/bin' >> ~/.bashrc
+        echo 'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rocm/lib' >> ~/.bashrc
+    fi
+    
+    # Source the environment for current session
+    export PATH=$PATH:/opt/rocm/bin:/opt/rocm/opencl/bin
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rocm/lib
+    
+    print_success "ROCm 5.7.1 installed successfully"
+    print_info "Note: You may need to log out and back in for group changes to take effect"
+    print_info "Note: Kernel module version (rocminfo) may show 1.1, but ROCm 5.7.1 is correctly installed"
+    echo ""
+    
+    return 0
+}
+
 # Function to validate ROCm installation
 check_rocm() {
     print_info "Checking for ROCm installation..."
@@ -197,8 +280,36 @@ check_rocm() {
     fi
     
     print_warning "ROCm not detected or not properly installed"
-    print_info "The system will continue with CPU-only PyTorch"
-    print_info "To install ROCm 5.7.1, visit: https://rocmdocs.amd.com/"
+    echo ""
+    
+    # Offer to install ROCm 5.7.1 for Ubuntu 22.04.3
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [[ "$ID" == "ubuntu" ]] && [[ "$VERSION_ID" == "22.04" ]]; then
+            print_info "Would you like to install ROCm 5.7.1 for Ubuntu 22.04.3?"
+            print_info "This will install ROCm without DKMS to avoid kernel module issues."
+            echo ""
+            read -p "Install ROCm 5.7.1? (y/n) " -n 1 -r
+            echo ""
+            
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                install_rocm_5_7_1
+                if [ $? -eq 0 ]; then
+                    # Re-detect after installation
+                    ROCM_VERSION=$(detect_rocm_version)
+                    if [ -n "$ROCM_VERSION" ]; then
+                        print_success "ROCm installation completed successfully"
+                        return 0
+                    fi
+                fi
+            else
+                print_info "Skipping ROCm installation"
+                print_info "The system will continue with CPU-only PyTorch"
+            fi
+        fi
+    fi
+    
+    print_info "To install ROCm manually, visit: https://rocmdocs.amd.com/"
     return 1
 }
 

@@ -8,7 +8,9 @@ This guide will help you set up and run the AI Breadcrumb Automated Development 
 - Python 3.8 or higher
 - Git
 - 20GB+ free disk space (for AROS repository)
-- Optional: AMD ROCm-capable GPU (MI25, MI60, etc.) with ROCm 5.7.1 for training
+- Optional: AMD ROCm-capable GPU (MI25, MI60, etc.)
+  - ROCm 5.7.1 can be automatically installed by the bootstrap script for Ubuntu 22.04.3
+  - Script handles DKMS compatibility issues automatically
 
 ## Complete Bootstrap for Ubuntu 22.04.3 (Recommended)
 
@@ -22,7 +24,11 @@ The fastest way to get started is with the automated bootstrap script:
 
 1. **System Check**: Validates Ubuntu 22.04.3 installation
 2. **Dependencies**: Installs all required system packages (build tools, Python, etc.)
-3. **ROCm Validation**: Checks for ROCm 5.7.1 and AMD GPU availability
+3. **ROCm Management**: 
+   - Checks for existing ROCm installation
+   - On Ubuntu 22.04.3: Offers to install ROCm 5.7.1 if not present
+   - Handles DKMS compatibility issues automatically
+   - Validates AMD GPU availability
 4. **GitHub Token**: Prompts for and securely stores your GitHub token
 5. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
 6. **Database Schema**: Initializes and migrates database schema
