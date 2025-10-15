@@ -502,61 +502,111 @@ def api_iteration_status():
 @app.route('/api/projects/list')
 def api_projects_list():
     """List available projects for iteration"""
+    # Try to get projects from breadcrumbs first
+    breadcrumbs_file = Path(__file__).parent.parent / 'breadcrumbs.json'
+    
+    breadcrumb_projects = []
+    if breadcrumbs_file.exists():
+        try:
+            with open(breadcrumbs_file) as f:
+                data = json.load(f)
+            
+            # Extract unique phases from incomplete breadcrumbs
+            phases_with_incomplete = {}
+            for bc in data.get('breadcrumbs', []):
+                status = bc.get('status', '')
+                phase = bc.get('phase', '')
+                if status in ['PARTIAL', 'NOT_STARTED'] and phase:
+                    if phase not in phases_with_incomplete:
+                        phases_with_incomplete[phase] = 0
+                    phases_with_incomplete[phase] += 1
+            
+            # Convert to project format
+            for phase, count in phases_with_incomplete.items():
+                breadcrumb_projects.append({
+                    'id': phase.lower().replace(' ', '_'),
+                    'name': phase,
+                    'description': f'{count} incomplete task(s) from breadcrumbs',
+                    'path': f'aros-src/{phase.lower()}',
+                    'available': True,
+                    'from_breadcrumbs': True,
+                    'incomplete_count': count
+                })
+        except Exception as e:
+            print(f"Error reading breadcrumbs for projects: {e}")
+    
     # Common AROS projects that can be targeted for development
-    projects = [
+    predefined_projects = [
         {
             'id': 'radeonsi',
             'name': 'RadeonSI Graphics Driver',
             'description': 'AMD Radeon GPU driver implementation',
-            'path': 'workbench/devs/radeonsi'
+            'path': 'workbench/devs/radeonsi',
+            'from_breadcrumbs': False
         },
         {
             'id': 'graphics',
             'name': 'Graphics Pipeline',
             'description': 'Core graphics rendering pipeline',
-            'path': 'workbench/libs/graphics'
+            'path': 'workbench/libs/graphics',
+            'from_breadcrumbs': False
         },
         {
             'id': 'kernel',
             'name': 'Kernel Components',
             'description': 'Operating system kernel',
-            'path': 'rom/kernel'
+            'path': 'rom/kernel',
+            'from_breadcrumbs': False
         },
         {
             'id': 'intuition',
             'name': 'Intuition GUI',
             'description': 'Windowing and GUI system',
-            'path': 'rom/intuition'
+            'path': 'rom/intuition',
+            'from_breadcrumbs': False
         },
         {
             'id': 'gallium',
             'name': 'Gallium3D Backend',
             'description': '3D graphics acceleration backend',
-            'path': 'workbench/devs/gallium'
+            'path': 'workbench/devs/gallium',
+            'from_breadcrumbs': False
         },
         {
             'id': 'mesa',
             'name': 'Mesa Integration',
             'description': 'OpenGL implementation',
-            'path': 'workbench/libs/mesa'
+            'path': 'workbench/libs/mesa',
+            'from_breadcrumbs': False
         }
     ]
     
-    # Check which projects actually exist
+    # Check which predefined projects actually exist
     available_projects = []
     if aros_path.exists():
-        for project in projects:
+        for project in predefined_projects:
             project_path = aros_path / project['path']
-            if project_path.exists():
-                project['available'] = True
-                available_projects.append(project)
-            else:
-                project['available'] = False
-                available_projects.append(project)
+            project['available'] = project_path.exists()
+            available_projects.append(project)
+    else:
+        available_projects = predefined_projects
+    
+    # Combine breadcrumb-based and predefined projects
+    all_projects = breadcrumb_projects + available_projects
+    
+    # Sort: breadcrumb projects first, then by incomplete count
+    all_projects.sort(
+        key=lambda p: (
+            not p.get('from_breadcrumbs', False),
+            -p.get('incomplete_count', 0)
+        )
+    )
     
     return jsonify({
-        'projects': available_projects,
-        'count': len(available_projects)
+        'projects': all_projects,
+        'count': len(all_projects),
+        'breadcrumb_based': len(breadcrumb_projects),
+        'predefined': len(available_projects)
     })
 
 
