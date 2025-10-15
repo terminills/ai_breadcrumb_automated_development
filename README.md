@@ -121,6 +121,35 @@ Comprehensive examples demonstrating the complete AI development lifecycle from 
 - **LLM**: Llama 2, Mistral, or CodeLlama (7B-13B params)
 - **Hardware**: CPU or AMD GPU (ROCm acceleration)
 
+## 🚀 Interactive Development Mode
+
+**NEW**: Experience GitHub Copilot-style development with our interactive tools!
+
+```bash
+# Launch interactive mode menu
+./scripts/interactive_mode.sh
+
+# Or try specific modes:
+python3 scripts/interactive_demo.py    # See the full workflow
+python3 scripts/interactive_chat.py    # Chat with AI assistant
+./scripts/run_copilot_iteration.sh radeonsi 10  # Real iteration
+./start_ui.sh                          # Web-based monitoring
+```
+
+**Features:**
+- 🎯 **Interactive Demo** - Watch AI explore, reason, generate, and learn
+- 💬 **Chat Mode** - Conversational development assistant
+- 🔄 **Live Iteration** - Real-time code generation with streaming output
+- 📊 **Web Dashboard** - Monitor progress in your browser
+- 🎨 **Beautiful CLI** - Progress indicators, colors, and formatting
+
+**Documentation:**
+- [Quick Reference](QUICKREF_INTERACTIVE.md) - Commands and common tasks
+- [Interactive Guide](docs/INTERACTIVE_GUIDE.md) - Complete documentation
+- [Example Workflows](docs/INTERACTIVE_WORKFLOWS.md) - Real-world examples
+
+---
+
 ## 🚀 Getting Started
 
 ### For AI Training
