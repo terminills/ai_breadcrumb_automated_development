@@ -262,6 +262,52 @@
                 </div>
             </div>
             
+            <!-- Repository Sync Card -->
+            <div class="card">
+                <h2>Repository Sync</h2>
+                <div class="stat">
+                    <span class="stat-label">Current Branch</span>
+                    <span class="stat-value" id="gitBranch">--</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Last Commit</span>
+                    <span class="stat-value" style="font-size: 0.9em;" id="gitLastCommit">--</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Uncommitted Changes</span>
+                    <span class="stat-value" id="gitChanges">--</span>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button id="gitPullBtn" onclick="triggerGitPull()" style="width: 100%; background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        🔄 Pull Latest Updates
+                    </button>
+                </div>
+                <div id="gitStatus" style="margin-top: 10px; padding: 8px; border-radius: 5px; display: none;"></div>
+            </div>
+            
+            <!-- Git History Training Card -->
+            <div class="card">
+                <h2>Git History Training</h2>
+                <div class="stat">
+                    <span class="stat-label">Status</span>
+                    <span class="stat-value" id="gitHistoryStatus">Not Run</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Last Extraction</span>
+                    <span class="stat-value" style="font-size: 0.8em;" id="gitHistoryLastRun">--</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Commits Extracted</span>
+                    <span class="stat-value" id="gitHistoryCommits">0</span>
+                </div>
+                <div style="margin-top: 15px;">
+                    <button id="gitHistoryBtn" onclick="triggerGitHistoryExtraction()" style="width: 100%; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+                        📊 Extract Training Data
+                    </button>
+                </div>
+                <div id="gitHistoryExtractionStatus" style="margin-top: 10px; padding: 8px; border-radius: 5px; display: none;"></div>
+            </div>
+            
             <!-- Breadcrumb Statistics Card -->
             <div class="card">
                 <h2>AI Breadcrumbs</h2>
@@ -651,6 +697,12 @@
                     iteration.status === 'never_run' ? 'Not Started' : 
                     iteration.status;
             }
+            
+            // Update git status
+            updateGitStatus();
+            
+            // Update git history status
+            updateGitHistoryStatus();
         }
         
         // Trigger breadcrumb scan
@@ -824,6 +876,171 @@
                 }
             } catch (error) {
                 alert(`Error starting iteration: ${error.message}`);
+            }
+        }
+        
+        // Trigger git pull
+        async function triggerGitPull() {
+            const statusDiv = document.getElementById('gitStatus');
+            const pullBtn = document.getElementById('gitPullBtn');
+            
+            // Disable button during pull
+            pullBtn.disabled = true;
+            
+            // Show status
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(251, 191, 36, 0.2)';
+            statusDiv.style.border = '1px solid #fbbf24';
+            statusDiv.innerHTML = '⏳ Pulling updates...';
+            
+            try {
+                const response = await fetch('/api/git/pull', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    statusDiv.style.background = 'rgba(74, 222, 128, 0.2)';
+                    statusDiv.style.border = '1px solid #4ade80';
+                    statusDiv.innerHTML = '✓ Repository updated successfully!';
+                    
+                    // Refresh git status
+                    setTimeout(() => {
+                        updateGitStatus();
+                    }, 500);
+                } else {
+                    statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusDiv.style.border = '1px solid #ef4444';
+                    statusDiv.innerHTML = `✗ Pull failed: ${result.message}`;
+                }
+            } catch (error) {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.border = '1px solid #ef4444';
+                statusDiv.innerHTML = `✗ Error: ${error.message}`;
+            } finally {
+                // Re-enable button
+                pullBtn.disabled = false;
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Update git status
+        async function updateGitStatus() {
+            const gitStatus = await fetchData('/api/git/status');
+            
+            if (gitStatus && gitStatus.status === 'ok') {
+                document.getElementById('gitBranch').textContent = gitStatus.branch || 'unknown';
+                document.getElementById('gitChanges').textContent = gitStatus.has_changes ? 'Yes' : 'No';
+                
+                if (gitStatus.last_commit) {
+                    const commit = gitStatus.last_commit;
+                    document.getElementById('gitLastCommit').textContent = 
+                        `${commit.hash} - ${commit.message.substring(0, 30)}...`;
+                }
+            } else if (gitStatus && gitStatus.status === 'not_cloned') {
+                document.getElementById('gitBranch').textContent = 'Not Cloned';
+                document.getElementById('gitChanges').textContent = '--';
+                document.getElementById('gitLastCommit').textContent = '--';
+            }
+        }
+        
+        // Trigger git history extraction
+        async function triggerGitHistoryExtraction() {
+            const statusDiv = document.getElementById('gitHistoryExtractionStatus');
+            const extractBtn = document.getElementById('gitHistoryBtn');
+            
+            // Get user input for options
+            const maxCommits = prompt('Maximum commits to extract:', '1000');
+            if (!maxCommits) return;
+            
+            const format = prompt('Output format (jsonl, json, csv):', 'jsonl');
+            if (!format) return;
+            
+            // Disable button during extraction
+            extractBtn.disabled = true;
+            
+            // Show status
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(251, 191, 36, 0.2)';
+            statusDiv.style.border = '1px solid #fbbf24';
+            statusDiv.innerHTML = '⏳ Extracting git history...';
+            
+            try {
+                const response = await fetch('/api/git_history/extract', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        max_commits: parseInt(maxCommits),
+                        format: format
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.status === 'success') {
+                    statusDiv.style.background = 'rgba(74, 222, 128, 0.2)';
+                    statusDiv.style.border = '1px solid #4ade80';
+                    
+                    const commitCount = result.summary ? result.summary.total_commits : 'unknown';
+                    statusDiv.innerHTML = `✓ Extraction completed! ${commitCount} commits extracted.`;
+                    
+                    // Refresh git history status
+                    setTimeout(() => {
+                        updateGitHistoryStatus();
+                    }, 500);
+                } else {
+                    statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusDiv.style.border = '1px solid #ef4444';
+                    statusDiv.innerHTML = `✗ Extraction failed: ${result.message}`;
+                }
+            } catch (error) {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.border = '1px solid #ef4444';
+                statusDiv.innerHTML = `✗ Error: ${error.message}`;
+            } finally {
+                // Re-enable button
+                extractBtn.disabled = false;
+                
+                // Hide status after 10 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 10000);
+            }
+        }
+        
+        // Update git history status
+        async function updateGitHistoryStatus() {
+            const gitHistoryStatus = await fetchData('/api/git_history/status');
+            
+            if (gitHistoryStatus) {
+                if (gitHistoryStatus.status === 'completed') {
+                    document.getElementById('gitHistoryStatus').textContent = 'Completed';
+                    
+                    if (gitHistoryStatus.summary) {
+                        document.getElementById('gitHistoryCommits').textContent = 
+                            gitHistoryStatus.summary.total_commits || 0;
+                        
+                        if (gitHistoryStatus.last_run) {
+                            const date = new Date(gitHistoryStatus.last_run);
+                            document.getElementById('gitHistoryLastRun').textContent = 
+                                date.toLocaleString();
+                        }
+                    }
+                } else if (gitHistoryStatus.status === 'never_run') {
+                    document.getElementById('gitHistoryStatus').textContent = 'Not Run';
+                    document.getElementById('gitHistoryLastRun').textContent = '--';
+                    document.getElementById('gitHistoryCommits').textContent = '0';
+                }
             }
         }
         

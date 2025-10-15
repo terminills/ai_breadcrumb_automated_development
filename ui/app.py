@@ -610,6 +610,228 @@ def api_projects_list():
     })
 
 
+@app.route('/api/git/pull', methods=['POST'])
+def api_git_pull():
+    """Pull latest updates from AROS repository"""
+    if not aros_path.exists():
+        return jsonify({
+            'status': 'error',
+            'message': 'AROS repository not found. Please clone it first.'
+        }), 400
+    
+    try:
+        # Pull updates from the repository
+        result = subprocess.run(
+            ['git', 'pull'],
+            cwd=aros_path,
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+        
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': 'Repository updated successfully',
+                'output': result.stdout
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to pull updates',
+                'error': result.stderr
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'status': 'error',
+            'message': 'Pull operation timed out'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Pull failed: {str(e)}'
+        }), 500
+
+
+@app.route('/api/git/status')
+def api_git_status():
+    """Get git repository status"""
+    if not aros_path.exists():
+        return jsonify({
+            'status': 'not_cloned',
+            'message': 'AROS repository not cloned yet'
+        })
+    
+    try:
+        # Get git status
+        result = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=aros_path,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        # Get current branch
+        branch_result = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            cwd=aros_path,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        # Get last commit info
+        commit_result = subprocess.run(
+            ['git', 'log', '-1', '--pretty=format:%H|%an|%ad|%s'],
+            cwd=aros_path,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        
+        has_changes = len(result.stdout.strip()) > 0
+        current_branch = branch_result.stdout.strip()
+        
+        commit_info = {}
+        if commit_result.returncode == 0 and commit_result.stdout:
+            parts = commit_result.stdout.split('|', 3)
+            if len(parts) == 4:
+                commit_info = {
+                    'hash': parts[0][:8],
+                    'author': parts[1],
+                    'date': parts[2],
+                    'message': parts[3]
+                }
+        
+        return jsonify({
+            'status': 'ok',
+            'cloned': True,
+            'branch': current_branch,
+            'has_changes': has_changes,
+            'last_commit': commit_info
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to get git status: {str(e)}'
+        }), 500
+
+
+@app.route('/api/git_history/extract', methods=['POST'])
+def api_git_history_extract():
+    """Extract git history for training data"""
+    if not aros_path.exists():
+        return jsonify({
+            'status': 'error',
+            'message': 'AROS repository not found. Please clone it first.'
+        }), 400
+    
+    try:
+        # Get options from request
+        data = request.get_json() or {}
+        max_commits = data.get('max_commits', 1000)
+        output_format = data.get('format', 'jsonl')
+        output_dir = data.get('output_dir', str(Path(__file__).parent.parent / 'training_data'))
+        
+        # Run git history extraction script
+        git_history_script = Path(__file__).parent.parent / 'scripts' / 'git_history_training.sh'
+        
+        if not git_history_script.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'Git history training script not found'
+            }), 500
+        
+        # Build command
+        cmd = [
+            str(git_history_script),
+            '-n', str(max_commits),
+            '-f', output_format,
+            '-o', output_dir,
+            '-v',
+            str(aros_path)
+        ]
+        
+        # Run extraction
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout
+        )
+        
+        if result.returncode == 0:
+            # Read summary file
+            summary_file = Path(output_dir) / 'summary.json'
+            summary = {}
+            if summary_file.exists():
+                with open(summary_file) as f:
+                    summary = json.load(f)
+            
+            return jsonify({
+                'status': 'success',
+                'message': 'Git history extraction completed successfully',
+                'output': result.stdout,
+                'summary': summary
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Extraction failed',
+                'error': result.stderr
+            }), 500
+            
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'status': 'error',
+            'message': 'Extraction timed out after 5 minutes'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Extraction failed: {str(e)}'
+        }), 500
+
+
+@app.route('/api/git_history/status')
+def api_git_history_status():
+    """Get git history training status"""
+    training_data_dir = Path(__file__).parent.parent / 'training_data'
+    
+    if not training_data_dir.exists():
+        return jsonify({
+            'status': 'never_run',
+            'message': 'No git history extraction has been run yet'
+        })
+    
+    # Check for summary file
+    summary_file = training_data_dir / 'summary.json'
+    
+    if summary_file.exists():
+        try:
+            with open(summary_file) as f:
+                summary = json.load(f)
+            
+            return jsonify({
+                'status': 'completed',
+                'last_run': summary.get('timestamp'),
+                'summary': summary
+            })
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to read summary: {str(e)}'
+            }), 500
+    
+    return jsonify({
+        'status': 'unknown',
+        'message': 'Training data directory exists but no summary found'
+    })
+
+
 if __name__ == '__main__':
     host = config['ui']['host']
     port = config['ui']['port']
