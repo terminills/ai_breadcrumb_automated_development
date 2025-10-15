@@ -7,6 +7,7 @@ from flask import Flask, render_template, jsonify, request
 import json
 import os
 import sys
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -22,6 +23,21 @@ app = Flask(__name__)
 config_path = Path(__file__).parent.parent / 'config' / 'config.json'
 with open(config_path) as f:
     config = json.load(f)
+
+# Run database migration on startup
+print("Running database schema migration...")
+migration_script = Path(__file__).parent.parent / 'scripts' / 'migrate_database.sh'
+if migration_script.exists():
+    try:
+        result = subprocess.run([str(migration_script)], capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✓ Database schema up to date")
+        else:
+            print(f"⚠ Warning: Database migration had issues: {result.stderr}")
+    except Exception as e:
+        print(f"⚠ Warning: Could not run database migration: {e}")
+else:
+    print("⚠ Warning: Database migration script not found")
 
 # Initialize components
 aros_path = Path(__file__).parent.parent / config['aros_local_path']
@@ -254,5 +270,26 @@ def api_reasoning_by_pattern(pattern):
 if __name__ == '__main__':
     host = config['ui']['host']
     port = config['ui']['port']
-    print(f"Starting AI Breadcrumb Development Monitor on http://{host}:{port}")
-    app.run(host=host, port=port, debug=True)
+    
+    # Get local IP for display
+    import socket
+    try:
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+    except:
+        local_ip = "unknown"
+    
+    print("")
+    print("╔════════════════════════════════════════════════════════════╗")
+    print("║  AI Breadcrumb Development Monitor                        ║")
+    print("╚════════════════════════════════════════════════════════════╝")
+    print("")
+    print("Access the UI at:")
+    print(f"  - Local:   http://localhost:{port}")
+    if local_ip != "unknown" and host == "0.0.0.0":
+        print(f"  - Network: http://{local_ip}:{port}")
+    print("")
+    print("Press Ctrl+C to stop")
+    print("")
+    
+    app.run(host=host, port=port, debug=False)

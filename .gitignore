@@ -42,6 +42,9 @@ aros-src/
 # AI Models (large)
 models/
 
+# GitHub Token (stored in ~/.aros_github_token, outside repo)
+# Token is never stored in the repository directory
+
 # Temporary files
 *.tmp
 .DS_Store

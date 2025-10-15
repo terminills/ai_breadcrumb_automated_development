@@ -4,12 +4,79 @@ This guide will help you set up and run the AI Breadcrumb Automated Development 
 
 ## Prerequisites
 
+- Ubuntu 22.04.3 (recommended) or compatible Linux distribution
 - Python 3.8 or higher
 - Git
 - 20GB+ free disk space (for AROS repository)
-- Optional: AMD ROCm-capable GPU (MI25, MI60, etc.) for training
+- Optional: AMD ROCm-capable GPU (MI25, MI60, etc.) with ROCm 5.7.1 for training
 
-## Quick Start
+## Complete Bootstrap for Ubuntu 22.04.3 (Recommended)
+
+The fastest way to get started is with the automated bootstrap script:
+
+```bash
+./scripts/bootstrap_ubuntu.sh
+```
+
+### What the Bootstrap Script Does
+
+1. **System Check**: Validates Ubuntu 22.04.3 installation
+2. **Dependencies**: Installs all required system packages (build tools, Python, etc.)
+3. **ROCm Validation**: Checks for ROCm 5.7.1 and AMD GPU availability
+4. **GitHub Token**: Prompts for and securely stores your GitHub token
+5. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
+6. **Database Schema**: Initializes and migrates database schema
+7. **PyTorch**: Installs PyTorch with ROCm support (or CPU-only)
+8. **Network UI**: Configures UI for local network access
+9. **Verification**: Tests the complete installation
+
+### First Run
+
+On first run, the bootstrap script will:
+
+1. Ask for your **GitHub Personal Access Token**
+   - Visit https://github.com/settings/tokens
+   - Create a token with 'repo' scope
+   - Enter the token when prompted
+   - Token is securely stored in `~/.aros_github_token`
+
+2. Clone both repositories:
+   - `terminills/AROS-OLD` (private - requires token)
+   - `aros-development-team/AROS` (upstream - configured as remote)
+
+3. Initialize databases:
+   - Error tracking database
+   - Reasoning/thought process database
+   - Training state database
+   - Compilation state database
+
+### Subsequent Runs
+
+On subsequent runs, the bootstrap script will:
+
+- Use the stored GitHub token (no prompt)
+- Skip cloning if repositories exist
+- **Always run database migrations** (ensures schema is up to date)
+- Update configuration if needed
+- Verify installation integrity
+
+### After Bootstrap
+
+Once bootstrap completes, you can:
+
+```bash
+# Start the UI (accessible on your local network)
+./start_ui.sh
+
+# Or manually
+cd ui && python3 app.py
+```
+
+Access the UI:
+- **Local**: http://localhost:5000
+- **Network**: http://YOUR_IP:5000 (shown at startup)
+
+## Manual Setup (Alternative)
 
 ### 1. Install Dependencies
 
@@ -218,6 +285,60 @@ Edit `config/config.json` to customize:
   }
 }
 ```
+
+## Database Schema Management
+
+The system uses JSON-based databases for tracking:
+
+### Automatic Schema Migration
+
+The database schema is automatically migrated on:
+- Bootstrap script execution
+- UI application startup
+- Manual migration script execution
+
+```bash
+# Manually run database migration
+./scripts/migrate_database.sh
+```
+
+### Database Files
+
+Located in `logs/`:
+
+- **Error Database**: `logs/errors/error_database.json`
+  - Tracks compilation errors
+  - Records error patterns
+  - Links to resolutions
+
+- **Reasoning Database**: `logs/reasoning/reasoning_database.json`
+  - Captures AI reasoning process
+  - Tracks breadcrumb effectiveness
+  - Records decision patterns
+
+- **Training State**: `logs/training/training_state.json`
+  - Training progress
+  - Model checkpoints
+  - Training history
+
+- **Compilation State**: `logs/compile/compile_state.json`
+  - Compilation statistics
+  - Success/failure rates
+  - Build history
+
+### Database Backups
+
+Automatic backups are created before migrations:
+```bash
+logs/backups/YYYYMMDD_HHMMSS/
+```
+
+### Schema Verification
+
+The migration script verifies database integrity:
+- JSON validation
+- Schema version checking
+- Automatic repair of corrupted files
 
 ## Monitoring and Logs
 

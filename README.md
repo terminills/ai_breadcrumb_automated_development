@@ -137,6 +137,32 @@ static void my_function(void) {
 
 ## 🚀 Quick Start (Development Environment)
 
+### Ubuntu 22.04.3 Complete Bootstrap (Recommended)
+
+For a complete, one-command setup on Ubuntu 22.04.3 with ROCm 5.7.1:
+
+```bash
+# Complete bootstrap - handles everything automatically
+./scripts/bootstrap_ubuntu.sh
+```
+
+This bootstrap script will:
+- Install all system dependencies
+- Validate ROCm 5.7.1 installation
+- Prompt for GitHub token (first run only)
+- Clone both AROS-OLD and configure upstream
+- Initialize database schema
+- Install PyTorch with ROCm support
+- Configure UI for network access
+- Verify the complete installation
+
+After bootstrap completes, simply run:
+```bash
+./start_ui.sh
+```
+
+### Manual Setup (Alternative)
+
 ```bash
 # 1. Quick setup (one command)
 ./scripts/quickstart.sh
