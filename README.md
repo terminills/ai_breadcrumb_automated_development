@@ -143,7 +143,10 @@ python3 scripts/interactive_chat.py    # Chat with AI assistant
 - 📊 **Web Dashboard** - Monitor progress in your browser
 - 🎨 **Beautiful CLI** - Progress indicators, colors, and formatting
 
-See [Interactive Development Guide](docs/INTERACTIVE_GUIDE.md) for detailed instructions.
+**Documentation:**
+- [Quick Reference](QUICKREF_INTERACTIVE.md) - Commands and common tasks
+- [Interactive Guide](docs/INTERACTIVE_GUIDE.md) - Complete documentation
+- [Example Workflows](docs/INTERACTIVE_WORKFLOWS.md) - Real-world examples
 
 ---
 
