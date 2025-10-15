@@ -56,6 +56,37 @@ Comprehensive examples demonstrating the complete AI development lifecycle from 
 - Supports JSON, CSV, and text formats
 - Correlates code versions via AI_TRAIN_HASH
 
+### 4. AI Thought Process Logging
+
+**NEW**: A comprehensive system for capturing and analyzing AI reasoning during autonomous development.
+
+**Key Features:**
+- Captures AI's internal reasoning steps
+- Tracks breadcrumb usage and effectiveness
+- Monitors pattern application and success rates
+- Provides real-time visibility into AI decision-making
+- Enables research and debugging of AI behavior
+
+**Documentation**: [docs/THOUGHT_PROCESS_LOGGING.md](docs/THOUGHT_PROCESS_LOGGING.md)
+
+**What It Captures:**
+- Context: Breadcrumbs consulted, errors analyzed, files considered
+- Reasoning Chain: Step-by-step logical progression
+- Decision: Action type, approach, confidence level
+- Outcome: Success/failure, iterations required
+
+**API Endpoints:**
+- `/api/reasoning/current` - Live AI thinking
+- `/api/reasoning/history` - Historical decisions
+- `/api/reasoning/stats` - Pattern and breadcrumb effectiveness
+- `/api/reasoning/failed` - Failed reasoning for debugging
+
+**Benefits:**
+- **For Debugging**: See where AI reasoning breaks down
+- **For Research**: Understand how AI uses breadcrumbs
+- **For Improvement**: Identify missing information
+- **For Analysis**: Query patterns and success rates
+
 ## 🚀 Getting Started
 
 ### For AI Training

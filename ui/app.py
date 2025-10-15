@@ -14,7 +14,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.breadcrumb_parser import BreadcrumbParser, BreadcrumbValidator
-from src.compiler_loop import CompilerLoop, ErrorTracker
+from src.compiler_loop import CompilerLoop, ErrorTracker, ReasoningTracker
 
 app = Flask(__name__)
 
@@ -31,6 +31,7 @@ parser = BreadcrumbParser()
 validator = BreadcrumbValidator()
 compiler_loop = None
 error_tracker = ErrorTracker(str(logs_path / 'errors'))
+reasoning_tracker = ReasoningTracker(str(logs_path / 'reasoning'))
 
 
 @app.route('/')
@@ -165,6 +166,89 @@ def api_clone_aros():
     
     # This would be handled by the scripts
     return jsonify({'status': 'queued', 'message': 'Clone operation queued'})
+
+
+@app.route('/api/reasoning/current')
+def api_reasoning_current():
+    """Get current AI reasoning in progress"""
+    current = reasoning_tracker.get_current_reasoning()
+    
+    if current:
+        return jsonify(current)
+    
+    return jsonify({
+        'message': 'No active reasoning at this time',
+        'status': 'idle'
+    })
+
+
+@app.route('/api/reasoning/history')
+def api_reasoning_history():
+    """Get recent reasoning history"""
+    limit = request.args.get('limit', default=10, type=int)
+    history = reasoning_tracker.get_recent_reasoning(limit=limit)
+    
+    return jsonify({
+        'history': history,
+        'count': len(history)
+    })
+
+
+@app.route('/api/reasoning/stats')
+def api_reasoning_stats():
+    """Get reasoning statistics and patterns"""
+    return jsonify(reasoning_tracker.get_statistics())
+
+
+@app.route('/api/reasoning/patterns')
+def api_reasoning_patterns():
+    """Get pattern usage statistics"""
+    return jsonify({
+        'patterns': reasoning_tracker.get_pattern_statistics()
+    })
+
+
+@app.route('/api/reasoning/breadcrumbs')
+def api_reasoning_breadcrumbs():
+    """Get breadcrumb effectiveness statistics"""
+    return jsonify({
+        'breadcrumb_effectiveness': reasoning_tracker.get_breadcrumb_effectiveness()
+    })
+
+
+@app.route('/api/reasoning/failed')
+def api_reasoning_failed():
+    """Get failed reasoning patterns for analysis"""
+    failed = reasoning_tracker.get_failed_reasoning_patterns()
+    
+    return jsonify({
+        'failed_reasoning': failed,
+        'count': len(failed)
+    })
+
+
+@app.route('/api/reasoning/by_phase/<phase>')
+def api_reasoning_by_phase(phase):
+    """Query reasoning by phase"""
+    results = reasoning_tracker.query_by_phase(phase)
+    
+    return jsonify({
+        'phase': phase,
+        'results': results,
+        'count': len(results)
+    })
+
+
+@app.route('/api/reasoning/by_pattern/<pattern>')
+def api_reasoning_by_pattern(pattern):
+    """Query reasoning by pattern"""
+    results = reasoning_tracker.query_by_pattern(pattern)
+    
+    return jsonify({
+        'pattern': pattern,
+        'results': results,
+        'count': len(results)
+    })
 
 
 if __name__ == '__main__':

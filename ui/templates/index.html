@@ -291,6 +291,47 @@
                 </div>
                 <div id="errorPatternsContainer"></div>
             </div>
+            
+            <!-- AI Reasoning Card -->
+            <div class="card">
+                <h2>AI Reasoning</h2>
+                <div class="stat">
+                    <span class="stat-label">Reasoning Events</span>
+                    <span class="stat-value" id="totalReasoning">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Success Rate</span>
+                    <span class="stat-value success-count" id="reasoningSuccessRate">0%</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Patterns Used</span>
+                    <span class="stat-value" id="patternsUsed">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- AI Current Thinking Section -->
+        <div class="card">
+            <h2>🧠 AI Currently Thinking About</h2>
+            <div class="log-container" id="currentThinking">
+                <div class="loading">No active reasoning at this time</div>
+            </div>
+        </div>
+        
+        <!-- Reasoning History Section -->
+        <div class="card">
+            <h2>Recent Decisions & Reasoning</h2>
+            <div class="log-container" id="reasoningHistory">
+                <div class="loading">Loading reasoning history...</div>
+            </div>
+        </div>
+        
+        <!-- Pattern Usage Section -->
+        <div class="card">
+            <h2>Pattern Usage Statistics</h2>
+            <div class="log-container" id="patternUsage">
+                <div class="loading">Loading pattern statistics...</div>
+            </div>
         </div>
         
         <!-- Recent Activity Section -->
@@ -409,6 +450,128 @@
                     });
                     patternsContainer.innerHTML += '</div>';
                 }
+            }
+            
+            // AI Reasoning Statistics
+            const reasoning = await fetchData('/api/reasoning/stats');
+            if (reasoning) {
+                document.getElementById('totalReasoning').textContent = 
+                    reasoning.total_reasoning_events || 0;
+                
+                const successRate = reasoning.success_rate 
+                    ? (reasoning.success_rate * 100).toFixed(1) 
+                    : 0;
+                document.getElementById('reasoningSuccessRate').textContent = 
+                    `${successRate}%`;
+                
+                const patternsCount = reasoning.pattern_usage 
+                    ? Object.keys(reasoning.pattern_usage).length 
+                    : 0;
+                document.getElementById('patternsUsed').textContent = patternsCount;
+            }
+            
+            // Current AI Thinking
+            const currentThinking = await fetchData('/api/reasoning/current');
+            const thinkingContainer = document.getElementById('currentThinking');
+            
+            if (currentThinking && currentThinking.task_id) {
+                thinkingContainer.innerHTML = `
+                    <div class="log-entry" style="background: rgba(0, 255, 0, 0.1);">
+                        <strong>Task:</strong> ${currentThinking.task_id}<br>
+                        <strong>Phase:</strong> ${currentThinking.phase}<br>
+                        <strong>Decision:</strong> ${currentThinking.decision_type || 'Analyzing...'}<br>
+                        ${currentThinking.approach_chosen ? 
+                            `<strong>Approach:</strong> ${currentThinking.approach_chosen}<br>` : ''}
+                        ${currentThinking.confidence ? 
+                            `<strong>Confidence:</strong> ${(currentThinking.confidence * 100).toFixed(0)}%<br>` : ''}
+                        <br>
+                        <strong>Breadcrumbs Consulted:</strong><br>
+                        <ul style="margin-left: 20px;">
+                            ${(currentThinking.breadcrumbs_consulted || []).map(bc => 
+                                `<li>${bc}</li>`).join('')}
+                        </ul>
+                        ${currentThinking.reasoning_steps && currentThinking.reasoning_steps.length > 0 ? `
+                            <br><strong>Reasoning Steps:</strong><br>
+                            <ol style="margin-left: 20px;">
+                                ${currentThinking.reasoning_steps.map(step => 
+                                    `<li>${step}</li>`).join('')}
+                            </ol>
+                        ` : ''}
+                        ${currentThinking.patterns_identified && currentThinking.patterns_identified.length > 0 ? `
+                            <br><strong>Patterns Identified:</strong><br>
+                            ${currentThinking.patterns_identified.map(p => 
+                                `<span class="phase-badge">${p}</span>`).join(' ')}
+                        ` : ''}
+                    </div>
+                `;
+            } else {
+                thinkingContainer.innerHTML = `
+                    <div class="loading">No active reasoning at this time</div>
+                `;
+            }
+            
+            // Reasoning History
+            const reasoningHistory = await fetchData('/api/reasoning/history?limit=5');
+            const historyContainer = document.getElementById('reasoningHistory');
+            
+            if (reasoningHistory && reasoningHistory.history && reasoningHistory.history.length > 0) {
+                historyContainer.innerHTML = '';
+                reasoningHistory.history.forEach(entry => {
+                    const success = entry.success;
+                    const statusIcon = success === true ? '✓' : success === false ? '⚠' : '⏳';
+                    const statusClass = success === true ? 'success-count' : success === false ? 'error-count' : '';
+                    
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.innerHTML = `
+                        <span class="${statusClass}">${statusIcon}</span>
+                        <strong>${entry.task_id}</strong> - ${entry.phase}<br>
+                        <small>${new Date(entry.timestamp).toLocaleString()}</small><br>
+                        ${entry.decision_type ? `<strong>Decision:</strong> ${entry.decision_type}<br>` : ''}
+                        ${entry.approach_chosen ? `<em>${entry.approach_chosen}</em><br>` : ''}
+                        ${entry.confidence ? `<strong>Confidence:</strong> ${(entry.confidence * 100).toFixed(0)}%<br>` : ''}
+                        ${entry.patterns_identified && entry.patterns_identified.length > 0 ? 
+                            `<strong>Patterns:</strong> ${entry.patterns_identified.join(', ')}` : ''}
+                    `;
+                    historyContainer.appendChild(div);
+                });
+            } else {
+                historyContainer.innerHTML = `
+                    <div class="loading">No reasoning history available yet</div>
+                `;
+            }
+            
+            // Pattern Usage Statistics
+            const patternStats = await fetchData('/api/reasoning/patterns');
+            const patternContainer = document.getElementById('patternUsage');
+            
+            if (patternStats && patternStats.patterns && Object.keys(patternStats.patterns).length > 0) {
+                patternContainer.innerHTML = '';
+                
+                // Sort patterns by usage
+                const sortedPatterns = Object.entries(patternStats.patterns)
+                    .sort((a, b) => b[1].uses - a[1].uses)
+                    .slice(0, 10); // Top 10
+                
+                sortedPatterns.forEach(([pattern, stats]) => {
+                    const successRate = (stats.success_rate * 100).toFixed(0);
+                    const div = document.createElement('div');
+                    div.className = 'stat';
+                    div.innerHTML = `
+                        <span>
+                            <strong>${pattern}</strong><br>
+                            <small>Used ${stats.uses} time${stats.uses !== 1 ? 's' : ''}</small>
+                        </span>
+                        <span class="stat-value" style="font-size: 1.2em;">
+                            ${successRate}% success
+                        </span>
+                    `;
+                    patternContainer.appendChild(div);
+                });
+            } else {
+                patternContainer.innerHTML = `
+                    <div class="loading">No pattern statistics available yet</div>
+                `;
             }
             
             // Training Status
