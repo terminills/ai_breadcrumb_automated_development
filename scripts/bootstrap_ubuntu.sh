@@ -130,6 +130,15 @@ detect_rocm_version() {
     if command_exists rocminfo; then
         local rocm_ver=$(rocminfo 2>/dev/null | grep "Runtime Version" | head -1 | awk '{print $3}' | cut -d'.' -f1,2)
         if [ -n "$rocm_ver" ]; then
+            # On Ubuntu 22.04.3, kernel module may report 1.1 but ROCm 5.7.1 is installed
+            # Force 5.7 for PyTorch compatibility when kernel reports 1.1
+            if [ "$rocm_ver" = "1.1" ] && [ -f "/opt/rocm/.info/version" ]; then
+                local file_ver=$(cat /opt/rocm/.info/version 2>/dev/null | cut -d'-' -f1 | cut -d'.' -f1,2)
+                if [[ "$file_ver" =~ ^5\.7 ]]; then
+                    echo "5.7"
+                    return 0
+                fi
+            fi
             echo "$rocm_ver"
             return 0
         fi
@@ -263,6 +272,13 @@ check_rocm() {
         # Check if it's 5.7.1 or compatible
         if [[ "$ROCM_VERSION" == "5.7" ]]; then
             print_success "ROCm 5.7.x detected - validated for PyTorch compatibility"
+            # Note: On Ubuntu 22.04.3, kernel module may show 1.1 but userspace is 5.7.1
+            if command_exists rocminfo; then
+                local kernel_ver=$(rocminfo 2>/dev/null | grep "Runtime Version" | head -1 | awk '{print $3}' | cut -d'.' -f1,2)
+                if [ "$kernel_ver" = "1.1" ]; then
+                    print_info "Note: Kernel module reports 1.1, but ROCm 5.7.1 userspace is correctly installed"
+                fi
+            fi
         else
             print_warning "ROCm $ROCM_VERSION detected (expected 5.7.1)"
             print_warning "PyTorch will attempt to use this version"
