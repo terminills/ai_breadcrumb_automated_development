@@ -237,22 +237,25 @@ process_commits() {
     
     log_info "Extracting commit history from $REPO_PATH..."
     
-    # Build git log command
-    local git_cmd="git --no-pager log --pretty=format:%H|%an|%ae|%ad|%s --numstat"
+    # Build git log command arguments
+    local git_args=(
+        "--no-pager" "log"
+        "--pretty=format:%H|%an|%ae|%ad|%s"
+        "--numstat"
+    )
     
     if [ -n "$SINCE_DATE" ]; then
-        git_cmd="$git_cmd --since=$SINCE_DATE"
+        git_args+=("--since=$SINCE_DATE")
     fi
     
     if [ -n "$UNTIL_DATE" ]; then
-        git_cmd="$git_cmd --until=$UNTIL_DATE"
+        git_args+=("--until=$UNTIL_DATE")
     fi
     
-    git_cmd="$git_cmd -n $MAX_COMMITS $BRANCH"
+    git_args+=("-n" "$MAX_COMMITS" "$BRANCH")
     
-    # Execute git log
-    cd "$REPO_PATH" || exit 1
-    eval "$git_cmd" > "$temp_log" 2>&1 || {
+    # Execute git log from the repository directory
+    (cd "$REPO_PATH" && git "${git_args[@]}") > "$temp_log" 2>&1 || {
         log_error "Failed to extract git log"
         exit 1
     }
