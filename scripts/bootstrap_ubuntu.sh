@@ -117,33 +117,83 @@ install_system_dependencies() {
     print_success "System dependencies installed"
 }
 
+# Function to detect ROCm version with multiple methods
+detect_rocm_version() {
+    # Method 1: Check rocminfo
+    if command_exists rocminfo; then
+        local rocm_ver=$(rocminfo 2>/dev/null | grep "Runtime Version" | head -1 | awk '{print $3}' | cut -d'.' -f1,2)
+        if [ -n "$rocm_ver" ]; then
+            echo "$rocm_ver"
+            return 0
+        fi
+    fi
+    
+    # Method 2: Check /opt/rocm/.info/version
+    if [ -f "/opt/rocm/.info/version" ]; then
+        local rocm_ver=$(cat /opt/rocm/.info/version | cut -d'-' -f1 | cut -d'.' -f1,2)
+        if [ -n "$rocm_ver" ]; then
+            echo "$rocm_ver"
+            return 0
+        fi
+    fi
+    
+    # Method 3: Check /opt/rocm/bin/.info/version
+    if [ -f "/opt/rocm/bin/.info/version" ]; then
+        local rocm_ver=$(cat /opt/rocm/bin/.info/version | cut -d'-' -f1 | cut -d'.' -f1,2)
+        if [ -n "$rocm_ver" ]; then
+            echo "$rocm_ver"
+            return 0
+        fi
+    fi
+    
+    # Method 4: Check dpkg for ROCm packages
+    if command_exists dpkg; then
+        local rocm_ver=$(dpkg -l | grep rocm-dev | awk '{print $3}' | cut -d'.' -f1,2 | head -1)
+        if [ -n "$rocm_ver" ]; then
+            echo "$rocm_ver"
+            return 0
+        fi
+    fi
+    
+    # Method 5: Check rpm for ROCm packages (for RPM-based distros)
+    if command_exists rpm; then
+        local rocm_ver=$(rpm -qa | grep rocm | head -1 | grep -oP '\d+\.\d+' | head -1)
+        if [ -n "$rocm_ver" ]; then
+            echo "$rocm_ver"
+            return 0
+        fi
+    fi
+    
+    return 1
+}
+
 # Function to validate ROCm installation
 check_rocm() {
     print_info "Checking for ROCm installation..."
     
-    if command_exists rocminfo; then
-        ROCM_VERSION=$(rocminfo 2>/dev/null | grep "Runtime Version" | head -1 | awk '{print $3}' | cut -d'.' -f1,2)
-        if [ -n "$ROCM_VERSION" ]; then
-            print_success "ROCm $ROCM_VERSION detected"
-            
-            # Check if it's 5.7.1 or compatible
-            if [[ "$ROCM_VERSION" == "5.7" ]]; then
-                print_success "ROCm 5.7.x detected - validated for Pytorch compatibility"
-            else
-                print_warning "ROCm $ROCM_VERSION detected (expected 5.7.1)"
-                print_warning "PyTorch will attempt to use this version"
-            fi
-            
-            # Test GPU detection
-            if rocminfo 2>/dev/null | grep -q "gfx900\|gfx906"; then
-                GPU_ARCH=$(rocminfo 2>/dev/null | grep "Name:" | grep "gfx" | head -1 | awk '{print $2}')
-                print_success "AMD GPU detected: $GPU_ARCH"
-            else
-                print_warning "No compatible AMD GPU detected"
-            fi
-            
-            return 0
+    # Use robust detection method
+    ROCM_VERSION=$(detect_rocm_version)
+    
+    if [ -n "$ROCM_VERSION" ]; then
+        print_success "ROCm $ROCM_VERSION detected"
+        
+        # Check if it's 5.7.1 or compatible
+        if [[ "$ROCM_VERSION" == "5.7" ]]; then
+            print_success "ROCm 5.7.x detected - validated for PyTorch compatibility"
+        else
+            print_warning "ROCm $ROCM_VERSION detected (expected 5.7.1)"
+            print_warning "PyTorch will attempt to use this version"
         fi
+        
+        # Test GPU detection
+        if command_exists rocminfo && rocminfo 2>/dev/null | grep -q "gfx900\|gfx906"; then
+            GPU_ARCH=$(rocminfo 2>/dev/null | grep "Name:" | grep "gfx" | head -1 | awk '{print $2}')
+            print_success "AMD GPU detected: $GPU_ARCH"
+        else
+            print_warning "No compatible AMD GPU detected"
+        fi
+        
+        return 0
     fi
     
     print_warning "ROCm not detected or not properly installed"
