@@ -88,6 +88,39 @@ Comprehensive examples demonstrating the complete AI development lifecycle from 
 - **For Improvement**: Identify missing information
 - **For Analysis**: Query patterns and success rates
 
+### 5. Copilot-Style Iteration with Local Models
+
+**NEW**: An enhanced iteration system that works like GitHub Copilot but uses **local AI models** for complete privacy and control.
+
+**Key Features:**
+- **Exploration Phase**: Automatically explores codebase before generating code
+- **Reasoning Phase**: LLM analyzes task and plans approach
+- **Generation Phase**: Codegen model creates code with breadcrumbs
+- **Self-Review**: Generated code is reviewed before compilation
+- **Interactive Sessions**: Multi-turn conversations with context preservation
+- **Local Models**: Uses Salesforce Codegen + Llama/Mistral locally
+
+**Documentation**: [docs/COPILOT_STYLE_ITERATION.md](docs/COPILOT_STYLE_ITERATION.md)
+
+**Quick Start:**
+```bash
+# Run Copilot-style iteration with local models
+./scripts/run_copilot_iteration.sh radeonsi 10
+```
+
+**What Makes It Different:**
+- ✓ Fully local - no cloud API calls
+- ✓ Explores codebase before generating
+- ✓ Reasons about tasks step-by-step
+- ✓ Self-reviews generated code
+- ✓ Learns from compilation errors
+- ✓ AMD GPU acceleration support
+
+**Models Used:**
+- **Codegen**: Salesforce CodeGen (350M-6B params)
+- **LLM**: Llama 2, Mistral, or CodeLlama (7B-13B params)
+- **Hardware**: CPU or AMD GPU (ROCm acceleration)
+
 ## 🚀 Getting Started
 
 ### For AI Training
@@ -189,9 +222,12 @@ cd ui && python app.py
 
 # 6. Run the AI development loop
 ./scripts/run_ai_agent.sh ITERATE radeonsi 10
+
+# 7. NEW: Run enhanced Copilot-style iteration with local models
+./scripts/run_copilot_iteration.sh radeonsi 10
 ```
 
-See [SETUP.md](SETUP.md) for detailed instructions, [AROS_SYNC_GUIDE.md](docs/AROS_SYNC_GUIDE.md) for repository synchronization, and [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details.
+See [SETUP.md](SETUP.md) for detailed instructions, [AROS_SYNC_GUIDE.md](docs/AROS_SYNC_GUIDE.md) for repository synchronization, [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details, and **[COPILOT_STYLE_ITERATION.md](docs/COPILOT_STYLE_ITERATION.md)** for the new Copilot-style iteration system.
 
 -----
 

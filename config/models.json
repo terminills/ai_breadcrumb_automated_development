@@ -1,0 +1,38 @@
+{
+  "codegen": {
+    "model_type": "salesforce/codegen",
+    "model_path": "Salesforce/codegen-350M-mono",
+    "device": "cpu",
+    "max_length": 512,
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "comment": "Lightweight code generation model for local use"
+  },
+  "llm": {
+    "model_type": "meta-llama/Llama-2-7b-chat-hf",
+    "model_path": "meta-llama/Llama-2-7b-chat-hf",
+    "device": "cpu",
+    "max_length": 2048,
+    "temperature": 0.8,
+    "context_window": 4096,
+    "comment": "Local LLM for reasoning and exploration. Requires Hugging Face token for download."
+  },
+  "exploration": {
+    "enabled": true,
+    "max_files_to_scan": 50,
+    "similarity_threshold": 0.7,
+    "enable_caching": true,
+    "comment": "Exploration settings for codebase analysis"
+  },
+  "session": {
+    "enable_streaming": true,
+    "save_sessions": true,
+    "max_conversation_history": 20,
+    "comment": "Interactive session configuration"
+  },
+  "hardware": {
+    "use_gpu_if_available": true,
+    "max_memory_per_model_gb": 8,
+    "comment": "Hardware acceleration settings. Will use AMD ROCm if available."
+  }
+}
