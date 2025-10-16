@@ -1348,6 +1348,72 @@ def api_file_view():
         }), 500
 
 
+@app.route('/api/diagnostics')
+def api_diagnostics():
+    """Run and return system diagnostics"""
+    try:
+        # Run diagnostics script and capture output
+        diagnostics_script = Path(__file__).parent.parent / 'scripts' / 'check_system_diagnostics.py'
+        
+        if not diagnostics_script.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'Diagnostics script not found'
+            }), 500
+        
+        # Run with JSON output
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            json_output = f.name
+        
+        try:
+            result = subprocess.run(
+                ['python3', str(diagnostics_script), '--json', json_output, '--quiet'],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            # Read JSON output
+            if Path(json_output).exists():
+                with open(json_output) as f:
+                    diagnostics = json.load(f)
+                
+                # Clean up temp file
+                Path(json_output).unlink()
+                
+                return jsonify({
+                    'status': 'success',
+                    'diagnostics': diagnostics,
+                    'exit_code': result.returncode
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Failed to generate diagnostics',
+                    'stderr': result.stderr
+                }), 500
+                
+        finally:
+            # Ensure temp file is cleaned up
+            if Path(json_output).exists():
+                try:
+                    Path(json_output).unlink()
+                except:
+                    pass
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            'status': 'error',
+            'message': 'Diagnostics timed out'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to run diagnostics: {str(e)}'
+        }), 500
+
+
 # ============================================================================
 # Session Management API - Integrated with CopilotStyleIteration
 # ============================================================================

@@ -63,6 +63,72 @@ class LocalModelLoader:
             }
         }
     
+    def _get_diagnostic_info(self) -> str:
+        """Get diagnostic information about system state"""
+        info_lines = []
+        
+        # Check PyTorch
+        try:
+            import torch
+            info_lines.append(f"  PyTorch: v{torch.__version__} ✓")
+            
+            if torch.cuda.is_available():
+                info_lines.append(f"  CUDA: v{torch.version.cuda} ({torch.cuda.device_count()} GPU(s)) ✓")
+                for i in range(torch.cuda.device_count()):
+                    gpu_name = torch.cuda.get_device_name(i)
+                    info_lines.append(f"    - GPU {i}: {gpu_name}")
+            else:
+                info_lines.append(f"  CUDA: Not available (CPU only)")
+            
+            if hasattr(torch.version, 'hip'):
+                info_lines.append(f"  ROCm: v{torch.version.hip} ✓")
+            
+        except ImportError:
+            info_lines.append("  PyTorch: Not installed ✗")
+        except Exception as e:
+            info_lines.append(f"  PyTorch: Error - {e}")
+        
+        # Check Transformers
+        try:
+            import transformers
+            info_lines.append(f"  Transformers: v{transformers.__version__} ✓")
+        except ImportError:
+            info_lines.append("  Transformers: Not installed ✗")
+        except Exception as e:
+            info_lines.append(f"  Transformers: Error - {e}")
+        
+        # Check disk space
+        try:
+            import psutil
+            disk = psutil.disk_usage(str(Path.home()))
+            free_gb = disk.free / (1024**3)
+            info_lines.append(f"  Disk Space: {free_gb:.1f}GB free")
+            
+            if free_gb < 15:
+                info_lines.append("    ⚠️  Low disk space - may cause model loading issues")
+        except:
+            pass
+        
+        # Check models
+        cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+        if cache_dir.exists():
+            codegen_exists = bool(list(cache_dir.glob("*codegen*")))
+            llama_exists = bool(list(cache_dir.glob("*Llama-2*")))
+            
+            if codegen_exists:
+                info_lines.append("  CodeGen Model: Downloaded ✓")
+            else:
+                info_lines.append("  CodeGen Model: Not downloaded ✗")
+            
+            if llama_exists:
+                info_lines.append("  LLaMA-2 Model: Downloaded ✓")
+            else:
+                info_lines.append("  LLaMA-2 Model: Not downloaded ✗")
+        else:
+            info_lines.append("  Models: None downloaded")
+        
+        return "\n".join(info_lines)
+    
     def get_codegen_config(self) -> Dict[str, Any]:
         """Get codegen model configuration"""
         return self.config.get("codegen", {})
@@ -124,6 +190,8 @@ class LocalModelLoader:
     
     def _format_missing_dependency_error(self, model_name: str, error: Exception) -> str:
         """Format a helpful error message for missing dependencies"""
+        diagnostic_info = self._get_diagnostic_info()
+        
         return f"""
 ╔══════════════════════════════════════════════════════════════════╗
 ║  AI MODEL DEPENDENCY ERROR                                       ║
@@ -131,17 +199,21 @@ class LocalModelLoader:
 
 Failed to load {model_name} model: {error}
 
+DIAGNOSTIC INFORMATION:
+{diagnostic_info}
+
 PROBLEM:
-  Required Python packages are not installed.
+  Required Python packages are not installed or have compatibility issues.
 
 SOLUTION:
-  Install the required dependencies:
+  1. Run system diagnostics:
+     $ python3 scripts/check_system_diagnostics.py
   
-  $ pip install torch transformers
+  2. Install the required dependencies:
+     $ pip install torch transformers
   
-  Or use the setup script:
-  
-  $ ./scripts/setup.sh
+  3. Or use the setup script:
+     $ ./scripts/setup.sh
 
 For more information, see: AI_MODEL_SETUP.md
 

@@ -308,6 +308,62 @@
             background: linear-gradient(90deg, #4ade80 0%, #3b82f6 100%);
             transition: width 0.3s ease;
         }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        
+        .diag-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .diag-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9em;
+        }
+        
+        .diag-item:last-child {
+            border-bottom: none;
+        }
+        
+        .loading-spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffd700;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -338,6 +394,9 @@
                     <span class="stat-value" id="loopStatus">--</span>
                 </div>
                 <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                    <button onclick="showDiagnostics()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        🔍 System Diagnostics
+                    </button>
                     <button onclick="triggerTraining()" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
                         🚀 Start Training
                     </button>
@@ -1139,6 +1198,195 @@
                 }
             } catch (error) {
                 alert(`Error starting training: ${error.message}`);
+            }
+        }
+        
+        // Show system diagnostics
+        async function showDiagnostics() {
+            const diagModal = document.getElementById('diagnosticsModal');
+            const diagContent = document.getElementById('diagnosticsContent');
+            
+            if (!diagModal) {
+                // Create diagnostics modal if it doesn't exist
+                const modal = document.createElement('div');
+                modal.id = 'diagnosticsModal';
+                modal.className = 'modal';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+                        <h2 style="color: #ffd700; margin-bottom: 20px;">🔍 System Diagnostics</h2>
+                        <div id="diagnosticsContent">
+                            <div style="text-align: center; padding: 40px;">
+                                <div class="loading-spinner"></div>
+                                <p>Running diagnostics...</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button onclick="closeDiagnosticsModal()" style="background: #6b7280;">Close</button>
+                            <button onclick="exportDiagnostics()" style="background: #3b82f6;">Export JSON</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            document.getElementById('diagnosticsModal').style.display = 'flex';
+            
+            try {
+                // Fetch diagnostics
+                const response = await fetch('/api/diagnostics');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    displayDiagnostics(data.diagnostics);
+                } else {
+                    document.getElementById('diagnosticsContent').innerHTML = `
+                        <div style="padding: 20px; background: rgba(239, 68, 68, 0.2); border-radius: 8px;">
+                            <p style="color: #ef4444;">❌ Failed to run diagnostics: ${data.message}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('diagnosticsContent').innerHTML = `
+                    <div style="padding: 20px; background: rgba(239, 68, 68, 0.2); border-radius: 8px;">
+                        <p style="color: #ef4444;">❌ Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayDiagnostics(diag) {
+            const content = document.getElementById('diagnosticsContent');
+            
+            let html = '<div style="display: flex; flex-direction: column; gap: 20px;">';
+            
+            // Python
+            if (diag.python) {
+                html += `
+                    <div class="diag-section">
+                        <h3 style="color: #ffd700; margin-bottom: 10px;">📦 Python Environment</h3>
+                        <div class="diag-item">Version: ${diag.python.version_info.major}.${diag.python.version_info.minor}.${diag.python.version_info.micro}</div>
+                        <div class="diag-item">Platform: ${diag.python.platform}</div>
+                    </div>
+                `;
+            }
+            
+            // PyTorch
+            if (diag.pytorch) {
+                const pt = diag.pytorch;
+                const status = pt.installed ? '✓' : '✗';
+                const color = pt.installed ? '#4ade80' : '#ef4444';
+                
+                html += `
+                    <div class="diag-section">
+                        <h3 style="color: #ffd700; margin-bottom: 10px;">🔥 PyTorch</h3>
+                        <div class="diag-item" style="color: ${color};">${status} ${pt.installed ? 'Installed: v' + pt.version : 'Not installed'}</div>
+                `;
+                
+                if (pt.installed) {
+                    html += `<div class="diag-item">CUDA Available: ${pt.cuda_available ? 'Yes ✓' : 'No (CPU only)'}</div>`;
+                    if (pt.cuda_available) {
+                        html += `<div class="diag-item">CUDA Version: ${pt.cuda_version}</div>`;
+                        html += `<div class="diag-item">GPU Count: ${pt.device_count}</div>`;
+                        
+                        if (pt.devices && pt.devices.length > 0) {
+                            pt.devices.forEach(gpu => {
+                                const mem_gb = (gpu.memory.total / (1024**3)).toFixed(1);
+                                html += `<div class="diag-item" style="margin-left: 20px;">GPU ${gpu.id}: ${gpu.name} (${mem_gb}GB)</div>`;
+                            });
+                        }
+                    }
+                    
+                    if (pt.rocm_available) {
+                        html += `<div class="diag-item">ROCm Available: Yes ✓</div>`;
+                        html += `<div class="diag-item">ROCm Version: ${pt.rocm_version}</div>`;
+                    }
+                } else if (pt.error) {
+                    html += `<div class="diag-item" style="color: #fbbf24;">Error: ${pt.error}</div>`;
+                }
+                
+                html += '</div>';
+            }
+            
+            // Models
+            if (diag.models) {
+                html += `
+                    <div class="diag-section">
+                        <h3 style="color: #ffd700; margin-bottom: 10px;">🤖 AI Models</h3>
+                        <div class="diag-item" style="color: ${diag.models.codegen.installed ? '#4ade80' : '#ef4444'};">
+                            ${diag.models.codegen.installed ? '✓' : '✗'} CodeGen: ${diag.models.codegen.installed ? (diag.models.codegen.size_mb.toFixed(1) + 'MB') : 'Not installed'}
+                        </div>
+                        <div class="diag-item" style="color: ${diag.models.llama2.installed ? '#4ade80' : '#ef4444'};">
+                            ${diag.models.llama2.installed ? '✓' : '✗'} LLaMA-2: ${diag.models.llama2.installed ? (diag.models.llama2.size_mb.toFixed(1) + 'MB') : 'Not installed'}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Disk Space
+            if (diag.disk_space && diag.disk_space.home) {
+                const disk = diag.disk_space.home;
+                const color = disk.free_gb < 15 ? '#fbbf24' : '#4ade80';
+                
+                html += `
+                    <div class="diag-section">
+                        <h3 style="color: #ffd700; margin-bottom: 10px;">💾 Disk Space</h3>
+                        <div class="diag-item">Total: ${disk.total_gb.toFixed(1)}GB</div>
+                        <div class="diag-item" style="color: ${color};">Free: ${disk.free_gb.toFixed(1)}GB (${(100-disk.percent_used).toFixed(1)}%)</div>
+                        ${disk.free_gb < 15 ? '<div class="diag-item" style="color: #fbbf24;">⚠️ Low disk space</div>' : ''}
+                    </div>
+                `;
+            }
+            
+            // Packages
+            if (diag.packages) {
+                const packages = Object.entries(diag.packages);
+                const installed = packages.filter(([_, info]) => info.installed).length;
+                const total = packages.length;
+                
+                html += `
+                    <div class="diag-section">
+                        <h3 style="color: #ffd700; margin-bottom: 10px;">📚 Required Packages</h3>
+                        <div class="diag-item">Installed: ${installed}/${total}</div>
+                `;
+                
+                const missing = packages.filter(([_, info]) => !info.installed);
+                if (missing.length > 0) {
+                    html += '<div class="diag-item" style="color: #fbbf24;">Missing:</div>';
+                    missing.forEach(([name, _]) => {
+                        html += `<div class="diag-item" style="margin-left: 20px; color: #ef4444;">- ${name}</div>`;
+                    });
+                }
+                
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            content.innerHTML = html;
+        }
+        
+        function closeDiagnosticsModal() {
+            document.getElementById('diagnosticsModal').style.display = 'none';
+        }
+        
+        let currentDiagnostics = null;
+        
+        async function exportDiagnostics() {
+            try {
+                const response = await fetch('/api/diagnostics');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const blob = new Blob([JSON.stringify(data.diagnostics, null, 2)], {type: 'application/json'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `diagnostics-${new Date().toISOString()}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                }
+            } catch (error) {
+                alert('Failed to export diagnostics: ' + error.message);
             }
         }
         
