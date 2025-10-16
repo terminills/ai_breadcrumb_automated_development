@@ -223,6 +223,91 @@
             padding: 20px;
             opacity: 0.7;
         }
+        
+        .agent-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #4ade80;
+        }
+        
+        .agent-item.idle {
+            border-left-color: #6b7280;
+            opacity: 0.7;
+        }
+        
+        .agent-item.active {
+            border-left-color: #4ade80;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 5px rgba(74, 222, 128, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(74, 222, 128, 0.6);
+            }
+        }
+        
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .agent-name {
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+        
+        .agent-status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .agent-status-badge.active {
+            background: #4ade80;
+            color: #000;
+        }
+        
+        .agent-status-badge.idle {
+            background: #6b7280;
+            color: #fff;
+        }
+        
+        .agent-task {
+            font-size: 0.85em;
+            margin-bottom: 6px;
+            opacity: 0.9;
+        }
+        
+        .agent-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+        
+        .agent-progress-bar {
+            flex: 1;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .agent-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80 0%, #3b82f6 100%);
+            transition: width 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -259,6 +344,22 @@
                     <button onclick="showIterationDialog()" style="background: linear-gradient(135deg, #ec4899 0%, #be185d 100%);">
                         🔄 Start Iteration Loop
                     </button>
+                </div>
+            </div>
+            
+            <!-- AI Agent Status Card -->
+            <div class="card">
+                <h2>🤖 AI Agent Status</h2>
+                <div class="stat">
+                    <span class="stat-label">Active Agents</span>
+                    <span class="stat-value success-count" id="activeAgents">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Idle Agents</span>
+                    <span class="stat-value" id="idleAgents">0</span>
+                </div>
+                <div id="agentsList" style="margin-top: 15px;">
+                    <div class="loading">Loading agent status...</div>
                 </div>
             </div>
             
@@ -550,6 +651,73 @@
                 const indicator = document.getElementById('statusIndicator');
                 indicator.className = 'status-indicator ' + 
                     (status.aros_cloned ? 'status-active' : 'status-inactive');
+            }
+            
+            // AI Agent Status
+            const agentStatus = await fetchData('/api/agents/status');
+            if (agentStatus) {
+                document.getElementById('activeAgents').textContent = agentStatus.total_active || 0;
+                document.getElementById('idleAgents').textContent = agentStatus.total_idle || 0;
+                
+                const agentsList = document.getElementById('agentsList');
+                if (agentStatus.agents && agentStatus.agents.length > 0) {
+                    agentsList.innerHTML = '';
+                    agentStatus.agents.forEach(agent => {
+                        const agentDiv = document.createElement('div');
+                        agentDiv.className = `agent-item ${agent.status}`;
+                        
+                        let progressHtml = '';
+                        if (agent.progress.percentage >= 0) {
+                            progressHtml = `
+                                <div class="agent-progress">
+                                    <span>${agent.progress.current}/${agent.progress.total}</span>
+                                    <div class="agent-progress-bar">
+                                        <div class="agent-progress-fill" style="width: ${agent.progress.percentage}%"></div>
+                                    </div>
+                                    <span>${agent.progress.percentage.toFixed(0)}%</span>
+                                </div>
+                            `;
+                        } else if (agent.progress.current > 0) {
+                            progressHtml = `
+                                <div class="agent-progress">
+                                    <span>${agent.progress.current} steps</span>
+                                </div>
+                            `;
+                        }
+                        
+                        let detailsHtml = '';
+                        if (agent.details && Object.keys(agent.details).length > 0) {
+                            detailsHtml = '<div style="font-size: 0.75em; margin-top: 6px; opacity: 0.7;">';
+                            Object.entries(agent.details).forEach(([key, value]) => {
+                                if (typeof value === 'object') {
+                                    // Skip complex objects
+                                    return;
+                                }
+                                const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                detailsHtml += `<div>${displayKey}: ${value}</div>`;
+                            });
+                            detailsHtml += '</div>';
+                        }
+                        
+                        agentDiv.innerHTML = `
+                            <div class="agent-header">
+                                <div class="agent-name">${agent.name}</div>
+                                <div class="agent-status-badge ${agent.status}">${agent.status}</div>
+                            </div>
+                            <div class="agent-task">
+                                <strong>Task:</strong> ${agent.current_task}
+                                ${agent.phase !== 'standby' && agent.phase !== 'unknown' ? 
+                                    `<br><strong>Phase:</strong> ${agent.phase}` : ''}
+                            </div>
+                            ${progressHtml}
+                            ${detailsHtml}
+                        `;
+                        
+                        agentsList.appendChild(agentDiv);
+                    });
+                } else {
+                    agentsList.innerHTML = '<div class="loading">No agents available</div>';
+                }
             }
             
             // Breadcrumb Statistics
