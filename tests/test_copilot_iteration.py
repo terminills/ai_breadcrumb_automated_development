@@ -318,7 +318,8 @@ def test_performance_tracking():
             aros_path=str(aros_path),
             project_name='test',
             log_path=str(Path(temp_dir) / 'logs'),
-            max_iterations=1
+            max_iterations=1,
+            max_retries=2
         )
         
         # Verify reasoning tracker is initialized
@@ -328,6 +329,48 @@ def test_performance_tracking():
         # Verify current_reasoning_id tracking
         assert hasattr(iteration, 'current_reasoning_id')
         print("✓ Reasoning ID tracking enabled")
+        
+        # Verify retry tracking
+        assert hasattr(iteration, 'max_retries')
+        assert iteration.max_retries == 2
+        print("✓ Retry logic enabled")
+        
+        return True
+
+
+def test_error_similarity():
+    """Test error similarity and resolution suggestions"""
+    print("\n=== Testing Error Similarity ===")
+    
+    from src.compiler_loop.error_tracker import ErrorTracker
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        tracker = ErrorTracker(log_path=temp_dir)
+        
+        # Track some errors
+        error1 = "undefined reference to `test_function'"
+        error2 = "undefined reference to `another_function'"
+        error3 = "syntax error near unexpected token"
+        
+        hash1 = tracker.track_error(error1, {'context': 'test1'})
+        hash2 = tracker.track_error(error2, {'context': 'test2'})
+        hash3 = tracker.track_error(error3, {'context': 'test3'})
+        
+        print(f"✓ Tracked 3 errors")
+        
+        # Mark one as resolved
+        tracker.mark_resolved(hash1, "Added missing function declaration")
+        print("✓ Marked error as resolved")
+        
+        # Find similar errors
+        similar = tracker.find_similar_errors("undefined reference to `new_function'")
+        assert len(similar) >= 2  # Should find error1 and error2
+        print(f"✓ Found {len(similar)} similar errors")
+        
+        # Get resolution suggestions
+        suggestions = tracker.get_resolution_suggestions("undefined reference to `new_function'")
+        assert len(suggestions) >= 1  # Should get suggestion from resolved error1
+        print(f"✓ Got {len(suggestions)} resolution suggestions")
         
         return True
 
@@ -347,6 +390,7 @@ def run_all_tests():
         ("Reasoning Tracker", test_reasoning_tracker),
         ("Iteration Context", test_iteration_context),
         ("Performance Tracking", test_performance_tracking),
+        ("Error Similarity", test_error_similarity),
     ]
     
     passed = 0

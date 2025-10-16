@@ -31,12 +31,14 @@ class CopilotStyleIteration:
         aros_path: str,
         project_name: str,
         log_path: str,
-        max_iterations: int = 10
+        max_iterations: int = 10,
+        max_retries: int = 3
     ):
         self.aros_path = Path(aros_path)
         self.project_name = project_name
         self.log_path = Path(log_path)
         self.max_iterations = max_iterations
+        self.max_retries = max_retries
         
         self.log_path.mkdir(parents=True, exist_ok=True)
         
@@ -65,11 +67,13 @@ class CopilotStyleIteration:
         self.current_iteration = 0
         self.successful_iterations = 0
         self.current_reasoning_id = None
+        self.retry_count = 0
     
     def run_interactive_iteration(
         self,
         task: Dict[str, Any],
-        enable_exploration: bool = True
+        enable_exploration: bool = True,
+        retry_on_failure: bool = True
     ) -> Dict[str, Any]:
         """
         Run one interactive iteration with exploration
@@ -77,102 +81,146 @@ class CopilotStyleIteration:
         Args:
             task: Task information from breadcrumb
             enable_exploration: Enable exploration phase
+            retry_on_failure: Retry on compilation/review failures
             
         Returns:
             Iteration results
         """
         self.current_iteration += 1
         iteration_start_time = datetime.now()
+        self.retry_count = 0
         
         logger.info(f"\n{'='*60}")
         logger.info(f"Iteration {self.current_iteration}/{self.max_iterations}")
         logger.info(f"Task: {task.get('phase', 'unknown')}")
         logger.info(f"{'='*60}\n")
         
-        # Start session
-        task_description = task.get('strategy', task.get('phase', 'unknown'))
-        context = {
-            'phase': task.get('phase', 'DEVELOPMENT'),
-            'status': task.get('status', 'IMPLEMENTING'),
-            'project': self.project_name,
-            'iteration': self.current_iteration
-        }
+        while self.retry_count <= self.max_retries:
+            try:
+                result = self._execute_iteration(
+                    task, 
+                    enable_exploration, 
+                    iteration_start_time
+                )
+                
+                # If successful or max retries reached, return
+                if result['success'] or not retry_on_failure or self.retry_count >= self.max_retries:
+                    return result
+                
+                # Otherwise, retry
+                self.retry_count += 1
+                logger.info(f"\n⚠ Iteration failed, retrying ({self.retry_count}/{self.max_retries})...")
+                
+                # Add retry context to session
+                if self.session_manager.current_session:
+                    retry_context = {
+                        'retry_count': self.retry_count,
+                        'previous_errors': result.get('compilation', {}).get('errors', []),
+                        'previous_review': result.get('review', {}).get('review', '')
+                    }
+                    self.session_manager.current_session['context'].update(retry_context)
+                
+            except Exception as e:
+                logger.error(f"Error in iteration: {e}")
+                if self.session_manager.current_session:
+                    self.session_manager.end_session(status='failed', summary=str(e))
+                raise
         
-        session_id = self.session_manager.start_session(
-            task_description=task_description,
-            context=context
-        )
+        # Max retries reached
+        logger.warning(f"\n⚠ Max retries ({self.max_retries}) reached")
+        return result
+    
+    def _execute_iteration(
+        self,
+        task: Dict[str, Any],
+        enable_exploration: bool,
+        start_time: datetime
+    ) -> Dict[str, Any]:
+        """Execute a single iteration attempt"""
         
-        logger.info(f"Started session: {session_id}")
+        # Start session on first attempt
+        if self.retry_count == 0:
+            task_description = task.get('strategy', task.get('phase', 'unknown'))
+            context = {
+                'phase': task.get('phase', 'DEVELOPMENT'),
+                'status': task.get('status', 'IMPLEMENTING'),
+                'project': self.project_name,
+                'iteration': self.current_iteration
+            }
+            
+            session_id = self.session_manager.start_session(
+                task_description=task_description,
+                context=context
+            )
+            
+            logger.info(f"Started session: {session_id}")
         
         phase_timings = {}
         
-        try:
-            # Phase 1: Exploration (like Copilot gathering context)
-            if enable_exploration:
-                phase_start = datetime.now()
-                self._exploration_phase(task)
-                phase_timings['exploration'] = (datetime.now() - phase_start).total_seconds()
-            
-            # Phase 2: Reasoning (like Copilot analyzing the problem)
+        # Phase 1: Exploration (like Copilot gathering context)
+        if enable_exploration and self.retry_count == 0:  # Only explore on first attempt
             phase_start = datetime.now()
-            self._reasoning_phase()
-            phase_timings['reasoning'] = (datetime.now() - phase_start).total_seconds()
-            
-            # Phase 3: Generation (like Copilot suggesting code)
-            phase_start = datetime.now()
-            generation_result = self._generation_phase()
-            phase_timings['generation'] = (datetime.now() - phase_start).total_seconds()
-            
-            # Phase 4: Review (self-review of generated code)
-            phase_start = datetime.now()
-            review_result = self._review_phase(generation_result)
-            phase_timings['review'] = (datetime.now() - phase_start).total_seconds()
-            
-            # Phase 5: Compilation & Testing
-            phase_start = datetime.now()
-            compile_result = self._compilation_phase(generation_result)
-            phase_timings['compilation'] = (datetime.now() - phase_start).total_seconds()
-            
-            # Phase 6: Learning from results
-            phase_start = datetime.now()
-            success = self._learning_phase(compile_result, review_result)
-            phase_timings['learning'] = (datetime.now() - phase_start).total_seconds()
-            
-            # End session
+            self._exploration_phase(task)
+            phase_timings['exploration'] = (datetime.now() - phase_start).total_seconds()
+        
+        # Phase 2: Reasoning (like Copilot analyzing the problem)
+        phase_start = datetime.now()
+        self._reasoning_phase()
+        phase_timings['reasoning'] = (datetime.now() - phase_start).total_seconds()
+        
+        # Phase 3: Generation (like Copilot suggesting code)
+        phase_start = datetime.now()
+        generation_result = self._generation_phase()
+        phase_timings['generation'] = (datetime.now() - phase_start).total_seconds()
+        
+        # Phase 4: Review (self-review of generated code)
+        phase_start = datetime.now()
+        review_result = self._review_phase(generation_result)
+        phase_timings['review'] = (datetime.now() - phase_start).total_seconds()
+        
+        # Phase 5: Compilation & Testing
+        phase_start = datetime.now()
+        compile_result = self._compilation_phase(generation_result)
+        phase_timings['compilation'] = (datetime.now() - phase_start).total_seconds()
+        
+        # Phase 6: Learning from results
+        phase_start = datetime.now()
+        success = self._learning_phase(compile_result, review_result)
+        phase_timings['learning'] = (datetime.now() - phase_start).total_seconds()
+        
+        # End session on success or final retry
+        if success or self.retry_count >= self.max_retries:
             status = 'completed' if success else 'needs_iteration'
-            self.session_manager.end_session(
-                status=status,
-                summary=f"Iteration {self.current_iteration} {status}"
-            )
+            if self.session_manager.current_session:
+                self.session_manager.end_session(
+                    status=status,
+                    summary=f"Iteration {self.current_iteration} {status} (retries: {self.retry_count})"
+                )
             
             if success:
                 self.successful_iterations += 1
-            
-            # Calculate total time
-            total_time = (datetime.now() - iteration_start_time).total_seconds()
-            
-            # Log performance metrics
-            logger.info(f"\n--- Performance Metrics ---")
-            logger.info(f"Total iteration time: {total_time:.2f}s")
-            for phase, timing in phase_timings.items():
-                logger.info(f"{phase.capitalize()}: {timing:.2f}s ({timing/total_time*100:.1f}%)")
-            
-            return {
-                'iteration': self.current_iteration,
-                'session_id': session_id,
-                'success': success,
-                'generation': generation_result,
-                'review': review_result,
-                'compilation': compile_result,
-                'timings': phase_timings,
-                'total_time': total_time
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in iteration: {e}")
-            self.session_manager.end_session(status='failed', summary=str(e))
-            raise
+        
+        # Calculate total time
+        total_time = (datetime.now() - start_time).total_seconds()
+        
+        # Log performance metrics
+        logger.info(f"\n--- Performance Metrics ---")
+        logger.info(f"Total iteration time: {total_time:.2f}s")
+        logger.info(f"Retry count: {self.retry_count}/{self.max_retries}")
+        for phase, timing in phase_timings.items():
+            logger.info(f"{phase.capitalize()}: {timing:.2f}s ({timing/total_time*100:.1f}%)")
+        
+        return {
+            'iteration': self.current_iteration,
+            'session_id': self.session_manager.current_session['id'] if self.session_manager.current_session else None,
+            'success': success,
+            'generation': generation_result,
+            'review': review_result,
+            'compilation': compile_result,
+            'timings': phase_timings,
+            'total_time': total_time,
+            'retry_count': self.retry_count
+        }
     
     def _exploration_phase(self, task: Dict[str, Any]):
         """Phase 1: Explore codebase like Copilot gathering context"""
@@ -344,7 +392,7 @@ class CopilotStyleIteration:
             logger.info("✓ Iteration successful - no errors to learn from")
             return True
         
-        # Track errors
+        # Track errors and get suggestions
         if compile_result.get('errors'):
             for error in compile_result['errors']:
                 error_hash = self.error_tracker.track_error(
@@ -352,16 +400,34 @@ class CopilotStyleIteration:
                     context={
                         'iteration': self.current_iteration,
                         'project': self.project_name,
-                        'reasoning_id': self.current_reasoning_id
+                        'reasoning_id': self.current_reasoning_id,
+                        'retry_count': self.retry_count
                     }
                 )
                 logger.info(f"Tracked error: {error_hash[:8]}")
+                
+                # Get resolution suggestions from similar errors
+                suggestions = self.error_tracker.get_resolution_suggestions(error)
+                if suggestions:
+                    logger.info(f"Found {len(suggestions)} resolution suggestions:")
+                    for idx, suggestion in enumerate(suggestions[:3], 1):
+                        logger.info(f"  {idx}. {suggestion[:100]}")
+                    
+                    # Add suggestions to session context for next retry
+                    if self.session_manager.current_session:
+                        if 'error_suggestions' not in self.session_manager.current_session['context']:
+                            self.session_manager.current_session['context']['error_suggestions'] = []
+                        self.session_manager.current_session['context']['error_suggestions'].extend(suggestions[:3])
                 
                 # Add to reasoning
                 if self.current_reasoning_id:
                     self.reasoning_tracker.add_reasoning_step(
                         f"Encountered error: {error[:100]}"
                     )
+                    if suggestions:
+                        self.reasoning_tracker.add_reasoning_step(
+                            f"Found {len(suggestions)} resolution suggestions from similar errors"
+                        )
         
         # Get error statistics
         stats = self.error_tracker.get_statistics()
