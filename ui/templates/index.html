@@ -560,11 +560,14 @@
                         breadcrumbs.validation.error_count;
                 }
                 
-                // Display phases
+                // Display phases (limited to 5)
                 const phasesContainer = document.getElementById('phasesContainer');
                 if (breadcrumbs.statistics.phases) {
                     phasesContainer.innerHTML = '<div style="margin-top: 15px;">';
-                    Object.entries(breadcrumbs.statistics.phases).forEach(([phase, count]) => {
+                    const phaseEntries = Object.entries(breadcrumbs.statistics.phases);
+                    const limitedPhases = phaseEntries.slice(0, 5);
+                    
+                    limitedPhases.forEach(([phase, count]) => {
                         const phaseClass = phase.toLowerCase().includes('graphics') ? 'phase-graphics' :
                                          phase.toLowerCase().includes('kernel') ? 'phase-kernel' :
                                          phase.toLowerCase().includes('printer') ? 'phase-printer' :
@@ -572,6 +575,13 @@
                         phasesContainer.innerHTML += 
                             `<span class="phase-badge ${phaseClass}">${phase}: ${count}</span>`;
                     });
+                    
+                    // Show indicator if there are more phases
+                    if (phaseEntries.length > 5) {
+                        phasesContainer.innerHTML += 
+                            `<span class="phase-badge" style="background: rgba(255, 255, 255, 0.1);">+${phaseEntries.length - 5} more</span>`;
+                    }
+                    
                     phasesContainer.innerHTML += '</div>';
                 }
             }

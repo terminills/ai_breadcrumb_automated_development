@@ -97,10 +97,10 @@ def api_breadcrumbs():
             with open(breadcrumbs_file) as f:
                 data = json.load(f)
                 
-            # Get recent breadcrumbs (first 20)
+            # Get recent breadcrumbs (first 5)
             recent_breadcrumbs = []
             if 'breadcrumbs' in data:
-                for b in data['breadcrumbs'][:20]:
+                for b in data['breadcrumbs'][:5]:
                     recent_breadcrumbs.append({
                         'file': b.get('file_path', ''),
                         'line': b.get('line_number', 0),
@@ -148,7 +148,7 @@ def api_breadcrumbs():
                 'status': b.status,
                 'strategy': b.strategy
             }
-            for b in parser.breadcrumbs[:20]
+            for b in parser.breadcrumbs[:5]
         ]
     })
 
