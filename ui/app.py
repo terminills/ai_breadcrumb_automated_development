@@ -1234,6 +1234,113 @@ def api_git_history_status():
     })
 
 
+@app.route('/api/file/view')
+def api_file_view():
+    """View file contents from AROS repository"""
+    file_path = request.args.get('path', '')
+    line_number = request.args.get('line', 0, type=int)
+    context_lines = request.args.get('context', 10, type=int)  # Lines before/after
+    
+    if not file_path:
+        return jsonify({
+            'status': 'error',
+            'message': 'File path is required'
+        }), 400
+    
+    if not aros_path.exists():
+        return jsonify({
+            'status': 'error',
+            'message': 'AROS repository not found'
+        }), 404
+    
+    # Resolve the full file path
+    try:
+        # Remove leading slash if present
+        file_path = file_path.lstrip('/')
+        full_path = aros_path / file_path
+        
+        # Security check: ensure the resolved path is within aros_path
+        full_path = full_path.resolve()
+        aros_path_resolved = aros_path.resolve()
+        
+        if not str(full_path).startswith(str(aros_path_resolved)):
+            return jsonify({
+                'status': 'error',
+                'message': 'Access denied: path outside repository'
+            }), 403
+        
+        if not full_path.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'File not found'
+            }), 404
+        
+        if not full_path.is_file():
+            return jsonify({
+                'status': 'error',
+                'message': 'Path is not a file'
+            }), 400
+        
+        # Read file content
+        try:
+            with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = f.readlines()
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to read file: {str(e)}'
+            }), 500
+        
+        # Calculate line range
+        total_lines = len(lines)
+        start_line = max(1, line_number - context_lines)
+        end_line = min(total_lines, line_number + context_lines)
+        
+        # Get the relevant lines
+        file_content = []
+        for i in range(start_line - 1, end_line):
+            file_content.append({
+                'line_number': i + 1,
+                'content': lines[i].rstrip('\n'),
+                'highlight': (i + 1) == line_number
+            })
+        
+        # Detect file type for syntax highlighting
+        file_extension = full_path.suffix.lstrip('.')
+        language_map = {
+            'c': 'c',
+            'h': 'c',
+            'cpp': 'cpp',
+            'cc': 'cpp',
+            'cxx': 'cpp',
+            'py': 'python',
+            'sh': 'bash',
+            'js': 'javascript',
+            'json': 'json',
+            'md': 'markdown',
+            'txt': 'text'
+        }
+        language = language_map.get(file_extension, 'text')
+        
+        return jsonify({
+            'status': 'success',
+            'file_path': file_path,
+            'full_path': str(full_path),
+            'total_lines': total_lines,
+            'start_line': start_line,
+            'end_line': end_line,
+            'highlight_line': line_number,
+            'language': language,
+            'content': file_content
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error processing file: {str(e)}'
+        }), 500
+
+
 if __name__ == '__main__':
     host = config['ui']['host']
     port = config['ui']['port']
