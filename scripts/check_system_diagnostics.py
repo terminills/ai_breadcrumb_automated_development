@@ -8,6 +8,7 @@ import sys
 import os
 import platform
 import subprocess
+import importlib
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
@@ -135,8 +136,6 @@ class DiagnosticChecker:
     
     def check_required_packages(self) -> Dict:
         """Check all required Python packages"""
-        import importlib
-        
         # Map package names to their import names
         required = {
             'flask': 'flask',
