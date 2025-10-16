@@ -1,10 +1,18 @@
 # Llama Pipeline Parameter Fix
 
 ## Issue
-Users were getting errors when testing Llama models directly with the transformers `pipeline()` function because they were using the wrong parameter name.
+Users may encounter errors when testing Llama models directly with the transformers `pipeline()` function. There are typically two issues:
 
-## Problem
-The issue stemmed from using `torch_dtype="auto"` with the `pipeline()` function:
+1. **Compatibility Error**: `ImportError: cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'`
+   - This occurs with incompatible PyTorch/Transformers versions
+   - **Fix**: `pip install --upgrade transformers>=4.40.0`
+   - See `AI_MODEL_SETUP.md` lines 189-200 for details
+
+2. **Parameter Naming Error**: Using `torch_dtype` instead of `dtype` with `pipeline()`
+   - This is documented below
+
+## Problem - Parameter Naming
+The second issue stems from using `torch_dtype="auto"` with the `pipeline()` function:
 
 ```python
 # INCORRECT - causes errors
@@ -81,6 +89,19 @@ Our existing codebase already uses the correct parameters:
 - `src/local_models/codegen_model.py` - Uses `torch_dtype` with `from_pretrained()` ✅
 
 ## How to Use
+
+### Troubleshooting Steps
+If you encounter errors when testing Llama models:
+
+1. **First, fix compatibility issues**:
+   ```bash
+   pip install --upgrade transformers>=4.40.0
+   ```
+   This resolves the `DiagnosticOptions` import error.
+
+2. **Then, fix parameter naming**:
+   - Change `torch_dtype="auto"` to `dtype="auto"` in your `pipeline()` call
+   - See examples below for correct usage
 
 ### For end users:
 1. Read the updated `AI_MODEL_SETUP.md` for detailed guidance
