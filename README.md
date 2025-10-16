@@ -463,7 +463,9 @@ See [Distributed AI Development Guide](docs/DISTRIBUTED_AI_GUIDE.md) for detaile
 
 ## Overview
 
-The AROS codebase uses a comprehensive structured AI breadcrumb system to track development progress, document AI contributions, facilitate autonomous learning from errors and iterations, and provide extensive context for AI development history. This enhanced system helps maintain code quality, provides deep traceability, and enables effective collaboration between human developers and AI systems with rich contextual information.
+The AROS codebase uses a comprehensive structured AI breadcrumb system to track development progress, document AI contributions, facilitate autonomous learning from errors and iterations, and provide extensive context for AI development history. 
+
+**Breadcrumbs act as a bidirectional map**, enabling navigation between related code components and providing a comprehensive view of system architecture and dependencies. This enhanced system helps maintain code quality, provides deep traceability, and enables effective collaboration between human developers and AI systems with rich contextual information.
 
 ## Purpose
 
@@ -471,6 +473,7 @@ The AROS codebase uses a comprehensive structured AI breadcrumb system to track 
 - **Enable AI Learning**: Provide extensive context for error correction, iteration, and pattern recognition  
 - **Facilitate Code Review**: Help reviewers understand the complete development history and reasoning
 - **Support Maintenance**: Provide comprehensive context for future modifications and debugging
+- **Bidirectional Navigation**: Enable navigation between related components through breadcrumb markers
 - **Cross-Reference Sources**: Link to equivalent implementations in other systems with detailed mapping
 - **Training Data Correlation**: Enable correlation with AI training data through hashing and versioning
 - **Audit Trail**: Maintain complete audit trails for compliance and debugging
@@ -539,8 +542,10 @@ int init_issue_tracking(void) {
 
 ### Core Tags (Required)
 
-- **AI_PHASE**: Development phase (e.g., KERNEL_INIT, GRAPHICS_PIPELINE, PRINTER_STACK, MMU_INIT)
+- **AI_PHASE**: Development phase identifier (e.g., KERNEL_INIT, GRAPHICS_PIPELINE, PRINTER_STACK, MMU_INIT)
 - **AI_STATUS**: Implementation status (NOT_STARTED, PARTIAL, IMPLEMENTED, FIXED, NEEDS_REFACTOR)
+- **AI_NOTE**: Context and next steps - Free-form context, design decisions, or instructions
+- **AI_BREADCRUMB**: File-level feature marker for bidirectional mapping between related components
 
 ### Enhanced Strategy and Pattern Tags
 
@@ -550,15 +555,15 @@ int init_issue_tracking(void) {
 
 ### Contextual Tags
 
-- **AI_NOTE**: Free-form context, design decisions, or instructions
 - **AI_HISTORY**: Historical context about previous implementations and iterations
 - **AI_CHANGE**: Description of the specific changes made in this iteration
 
-### Error and Debugging Tags
+### Error Tracking Tags
 
-- **COMPILER_ERR**: Exact compiler error messages for learning
-- **RUNTIME_ERR**: Runtime error symptoms and observations
-- **FIX_REASON**: Explanation of root cause and solution
+- **COMPILER_ERR**: Compiler error messages - Exact compiler error messages for learning
+- **RUNTIME_ERR**: Runtime error observations - Runtime error symptoms and observations
+- **FIX_REASON**: Explanation of fix - Explanation of root cause and solution
+- **AI_PATTERN**: Fix pattern identifier - Specific pattern used to resolve the error
 
 ### Historical Reference Tags
 
@@ -580,13 +585,13 @@ int init_issue_tracking(void) {
 
 ### Platform Reference Tags
 
-- **LINUX_REF**: Reference to equivalent Linux kernel or userspace implementation
-- **AMIGAOS_REF**: Reference to equivalent AmigaOS source or documentation
-- **AROS_IMPL**: Notes on AROS-specific implementation details or deviations
+- **LINUX_REF**: Linux kernel/Mesa source references - Reference to equivalent Linux kernel or userspace implementation
+- **AMIGAOS_REF**: AmigaOS source references - Reference to equivalent AmigaOS source or documentation
+- **AROS_IMPL**: AROS-specific implementation notes - Notes on AROS-specific implementation details or deviations
 
-### Human Interaction Tags
+### Security Tags
 
-- **HUMAN_OVERRIDE**: Notes about manual human interventions or patches
+- **HUMAN_OVERRIDE**: Manual human interventions - Notes about manual human interventions or patches
 
 ### AI Context Block
 
@@ -608,7 +613,45 @@ int init_issue_tracking(void) {
 
 ## Examples
 
-### Example 1: Comprehensive Fixed Implementation (Full Template)
+### Example 1: Bidirectional Breadcrumb Mapping
+
+```c
+// File: shader_init.c
+// AI_PHASE: SHADER_INIT
+// AI_STATUS: IMPLEMENTED
+// AI_BREADCRUMB: shader_system_v1
+// AI_NOTE: Shader system initialization - connects to compilation and execution
+// LINUX_REF: drivers/gpu/drm/amd/amdgpu/amdgpu_shader.c
+static void init_shader_system(struct ShaderContext *ctx)
+{
+    // Initialize shader compiler
+    init_shader_compiler(ctx);
+}
+
+// File: shader_compile.c
+// AI_PHASE: SHADER_COMPILE
+// AI_STATUS: IMPLEMENTED
+// AI_BREADCRUMB: shader_system_v1
+// AI_DEPENDENCIES: SHADER_INIT
+// AI_NOTE: Shader compilation - bidirectionally linked to init and execution
+static BOOL compile_shader(struct ShaderContext *ctx, const char *source)
+{
+    // Compilation logic
+}
+
+// File: shader_exec.c
+// AI_PHASE: SHADER_EXEC
+// AI_STATUS: PARTIAL
+// AI_BREADCRUMB: shader_system_v1
+// AI_DEPENDENCIES: SHADER_COMPILE
+// AI_NOTE: Shader execution - part of the shader_system_v1 feature map
+static void execute_shader(struct ShaderContext *ctx)
+{
+    // Execution logic
+}
+```
+
+### Example 2: Comprehensive Fixed Implementation (Full Template)
 
 ```c
 // AI_PHASE: MMU_INIT
@@ -646,7 +689,7 @@ static void mmu_init_mapping(struct MMUContext *ctx)
 }
 ```
 
-### Example 2: Partial Implementation with Pattern Tracking
+### Example 3: Partial Implementation with Pattern Tracking
 
 ```c
 // AI_PHASE: PRINTER_STACK
@@ -670,7 +713,7 @@ static BOOL detect_printers(struct PrinterContext *ctx)
 }
 ```
 
-### Example 3: Planning Stage with Reference Tracking
+### Example 4: Planning Stage with Reference Tracking
 
 ```c
 // AI_PHASE: AUDIO_PIPELINE
@@ -685,7 +728,7 @@ static BOOL detect_printers(struct PrinterContext *ctx)
 // AI_CONTEXT: { "pulseaudio_compat": true, "ahi_backward_compat": true, "realtime": true }
 ```
 
-### Example 4: Minimal Implementation (Legacy Compatibility)
+### Example 5: Minimal Implementation (Legacy Compatibility)
 
 ```c
 // AI_PHASE: GRAPHICS_BLITTING
@@ -707,6 +750,7 @@ static void simple_blit_operation(struct BitMap *src, struct BitMap *dest)
 - Update breadcrumbs when modifying associated code
 - Maintain consistent AI_PATTERN naming across similar implementations
 - Use semantic versioning for AI_VERSION tracking
+- Use AI_BREADCRUMB markers to create bidirectional navigation maps
 
 ### Clarity
 
@@ -715,6 +759,7 @@ static void simple_blit_operation(struct BitMap *src, struct BitMap *dest)
 - Document AROS-specific adaptations clearly in AROS_IMPL
 - Use descriptive AI_STRATEGY and AI_DETAILS for complex implementations
 - Provide meaningful AI_CONTEXT JSON with relevant keys
+- Use AI_BREADCRUMB to link related components across files
 
 ### Maintenance
 
@@ -746,6 +791,15 @@ static void simple_blit_operation(struct BitMap *src, struct BitMap *dest)
 - Use REF_USER_FEEDBACK to link user input
 - Maintain REF_TROUBLE_TICKET for issue tracking
 - Document platform-specific details in AROS_IMPL
+
+### Bidirectional Mapping
+
+- Use AI_BREADCRUMB markers to create navigable feature maps
+- Link related components across different files with the same AI_BREADCRUMB value
+- Leverage AI_DEPENDENCIES and AI_BLOCKS to establish relationships
+- Use the parser's `get_breadcrumb_map()` to find all components with a given marker
+- Use `find_related_breadcrumbs()` to discover bidirectional relationships
+- Think of breadcrumbs as a graph where nodes (breadcrumbs) are connected through markers, dependencies, and references
 
 ## Validation
 
