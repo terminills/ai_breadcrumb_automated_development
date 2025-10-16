@@ -530,7 +530,7 @@ setup_ai_models() {
     else
         print_warning "Transformers library not found"
         print_info "Installing transformers..."
-        pip install transformers>=4.36.0 -q
+        pip install transformers>=4.40.0 -q
     fi
     
     # Check if models are available

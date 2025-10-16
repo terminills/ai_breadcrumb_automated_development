@@ -7,6 +7,11 @@ The AROS-Cognito system uses two AI models for intelligent code generation and a
 1. **CodeGen** - For code generation (Salesforce/codegen-350M-mono, ~350MB)
 2. **LLaMA-2** - For reasoning and exploration (meta-llama/Llama-2-7b-chat-hf, ~13GB)
 
+### Version Compatibility
+
+- **PyTorch**: 2.3.1 or later
+- **Transformers**: 4.40.0 or later (required for PyTorch 2.3.1+ compatibility)
+
 ## Important: Models Are Required
 
 **The system will NOT work without AI models installed.** When models are missing, you'll see clear error messages with installation instructions.
@@ -132,6 +137,19 @@ Install PyTorch:
 pip install torch transformers
 # Or use the setup script:
 ./scripts/setup.sh
+```
+
+### "cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'"
+
+This error occurs when using an incompatible version of transformers with PyTorch 2.3.1+. To fix:
+
+```bash
+pip install --upgrade transformers>=4.40.0
+```
+
+Or reinstall dependencies:
+```bash
+pip install -r requirements.txt
 ```
 
 ### "Failed to load model"
