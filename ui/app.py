@@ -19,6 +19,19 @@ from src.compiler_loop import CompilerLoop, ErrorTracker, ReasoningTracker
 
 app = Flask(__name__)
 
+# Disable template caching for development and prevent browser caching
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+# Add cache control headers to prevent browser caching
+@app.after_request
+def add_header(response):
+    """Add headers to prevent caching of templates and API responses"""
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '-1'
+    return response
+
 # Load configuration
 config_path = Path(__file__).parent.parent / 'config' / 'config.json'
 with open(config_path) as f:
