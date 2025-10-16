@@ -34,7 +34,7 @@ The fastest way to get started is with the automated bootstrap script:
    - Validates AMD GPU availability
 5. **GitHub Token**: Prompts for and securely stores your GitHub token
 6. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
-7. **Database Schema**: Initializes and migrated database schema
+7. **Database Schema**: Initializes and migrates database schema
 8. **PyTorch**: Installs PyTorch 2.3.1+ in venv (or 2.0.1 for ROCm 5.7.1 compatibility)
 9. **Network UI**: Configures UI for local network access
 10. **Verification**: Tests the complete installation
