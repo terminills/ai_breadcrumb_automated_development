@@ -6,16 +6,34 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
+VENV_DIR="$PROJECT_ROOT/venv"
 
 echo "=========================================="
 echo "Starting AI Breadcrumb Development UI"
 echo "=========================================="
 echo ""
 
+# Activate virtual environment if it exists and is not already active
+if [ -d "$VENV_DIR" ] && [ -z "$VIRTUAL_ENV" ]; then
+    echo "🔧 Activating virtual environment..."
+    source "$VENV_DIR/bin/activate"
+    echo "✓ Virtual environment activated"
+    echo ""
+elif [ -z "$VIRTUAL_ENV" ]; then
+    echo "⚠️  Warning: Virtual environment not found at $VENV_DIR"
+    echo "   Run './scripts/bootstrap_ubuntu.sh' to set up the environment"
+    echo "   Attempting to use system Python..."
+    echo ""
+fi
+
 # Check Python dependencies
 if ! python3 -c "import flask" 2>/dev/null; then
     echo "❌ Flask not installed. Installing dependencies..."
-    pip install -r "$PROJECT_ROOT/requirements.txt" --user
+    if [ -n "$VIRTUAL_ENV" ]; then
+        pip install -r "$PROJECT_ROOT/requirements.txt"
+    else
+        pip install -r "$PROJECT_ROOT/requirements.txt" --user
+    fi
 fi
 
 # Create necessary directories if they don't exist
@@ -37,4 +55,10 @@ fi
 cd "$PROJECT_ROOT/ui"
 echo "🚀 Starting UI server..."
 echo ""
-python3 app.py
+
+# Use python if in venv, otherwise python3
+if [ -n "$VIRTUAL_ENV" ]; then
+    python app.py
+else
+    python3 app.py
+fi

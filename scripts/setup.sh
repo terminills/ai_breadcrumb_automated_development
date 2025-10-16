@@ -108,12 +108,12 @@ install_pytorch_rocm() {
         echo ""
         
         # Check Python version for AMD wheels compatibility
-        local python_ver=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        local python_ver=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
         if [[ "$python_ver" != "3.10" ]]; then
             echo "⚠ Warning: Python $python_ver detected, but AMD ROCm 5.7 wheels are built for Python 3.10"
             echo "   Will attempt to use standard PyTorch installation instead..."
         else
-            # Install torch and torchvision from AMD repository
+            # Install torch and torchvision from AMD repository (Note: using 2.0.1 for ROCm 5.7 compatibility)
             echo "Installing torch 2.0.1+rocm5.7 and torchvision 0.15.2+rocm5.7 from AMD repository..."
             pip install --ignore-installed \
                 https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torch-2.0.1%2Brocm5.7-cp310-cp310-linux_x86_64.whl \
@@ -159,10 +159,10 @@ install_pytorch_rocm() {
 # Function to install generic PyTorch
 install_pytorch_generic() {
     echo ""
-    echo "Installing generic PyTorch (CPU/CUDA)..."
+    echo "Installing generic PyTorch (CPU/CUDA) from requirements.txt..."
     echo ""
     
-    # Install requirements which includes torch
+    # Install requirements which includes torch>=2.3.1
     pip install -r "$PROJECT_ROOT/requirements.txt"
     
     if [ $? -eq 0 ]; then
@@ -201,7 +201,7 @@ echo ""
 echo "Checking prerequisites..."
 echo ""
 
-if ! command_exists python3; then
+if ! command_exists python3 && ! command_exists python; then
     echo "❌ Error: Python 3 is not installed"
     echo "   Please install Python 3.8 or higher"
     exit 1
@@ -213,7 +213,12 @@ if ! command_exists pip; then
     exit 1
 fi
 
-echo "✓ Python 3: $(python3 --version)"
+# Use python if available (venv) or python3
+if command_exists python; then
+    echo "✓ Python: $(python --version)"
+else
+    echo "✓ Python 3: $(python3 --version)"
+fi
 echo "✓ pip: $(pip --version)"
 echo ""
 
@@ -297,7 +302,15 @@ echo ""
 
 # Display PyTorch info
 echo "Verifying PyTorch installation..."
-python3 << 'PYTHON_CHECK'
+
+# Use python if available (venv) or python3
+if command_exists python; then
+    PYTHON_CMD="python"
+else
+    PYTHON_CMD="python3"
+fi
+
+$PYTHON_CMD << 'PYTHON_CHECK'
 try:
     import torch
     print(f"✓ PyTorch version: {torch.__version__}")

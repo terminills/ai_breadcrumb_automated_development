@@ -21,6 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="$PROJECT_ROOT/config/config.json"
 TOKEN_FILE="$HOME/.aros_github_token"
+VENV_DIR="$PROJECT_ROOT/venv"
 
 # Colors for output
 RED='\033[0;31m'
@@ -94,21 +95,15 @@ install_system_dependencies() {
     print_info "Installing system dependencies..."
     echo ""
     
-    # Check if we need sudo
-    if [ "$EUID" -ne 0 ]; then
-        print_info "This script requires sudo access for system packages"
-        SUDO="sudo"
-    else
-        SUDO=""
-    fi
+    print_info "This step requires sudo access for system package installation"
     
     # Update package list
     print_info "Updating package lists..."
-    $SUDO apt-get update -qq
+    sudo apt-get update -qq
     
     # Install essential build tools
     print_info "Installing build essentials..."
-    $SUDO apt-get install -y -qq \
+    sudo apt-get install -y -qq \
         build-essential \
         git \
         curl \
@@ -188,35 +183,28 @@ install_rocm_5_7_1() {
     print_info "Installing ROCm 5.7.1 for Ubuntu 22.04.3..."
     echo ""
     
-    # Check if we need sudo
-    if [ "$EUID" -ne 0 ]; then
-        SUDO="sudo"
-    else
-        SUDO=""
-    fi
-    
     # Ubuntu 22.04.3 has DKMS issues with newer ROCm versions
     # Force ROCm 5.7.1 which uses older kernel modules that work
     print_info "Setting up ROCm repository for version 5.7.1..."
     
     # Add ROCm repository key
     print_info "Adding ROCm GPG key..."
-    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | $SUDO apt-key add - 2>/dev/null || {
+    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add - 2>/dev/null || {
         # Fallback for newer apt that doesn't support apt-key
-        wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | $SUDO tee /etc/apt/trusted.gpg.d/rocm.gpg > /dev/null
+        wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/rocm.gpg > /dev/null
     }
     
     # Add ROCm 5.7.1 repository (ubuntu focal/jammy)
     print_info "Adding ROCm 5.7.1 repository..."
-    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main" | $SUDO tee /etc/apt/sources.list.d/rocm.list
+    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main" | sudo tee /etc/apt/sources.list.d/rocm.list
     
     # Set repository priority to prefer ROCm 5.7.1
     print_info "Setting repository priority..."
-    echo -e "Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600" | $SUDO tee /etc/apt/preferences.d/rocm-pin-600
+    echo -e "Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600" | sudo tee /etc/apt/preferences.d/rocm-pin-600
     
     # Update package list
     print_info "Updating package lists..."
-    $SUDO apt-get update -qq
+    sudo apt-get update -qq
     
     # Install ROCm 5.7.1 (without DKMS - uses existing kernel modules)
     print_info "Installing ROCm 5.7.1 packages (this may take several minutes)..."
@@ -224,7 +212,7 @@ install_rocm_5_7_1() {
     
     # Install core ROCm packages without kernel driver (amdgpu-dkms)
     # This allows using the kernel's built-in amdgpu driver which shows as 1.1
-    $SUDO apt-get install -y -qq \
+    sudo apt-get install -y -qq \
         rocm-dev \
         rocm-libs \
         rocm-utils \
@@ -238,7 +226,7 @@ install_rocm_5_7_1() {
     
     # Add user to render and video groups for GPU access
     print_info "Adding user to video and render groups..."
-    $SUDO usermod -a -G video,render $USER 2>/dev/null || true
+    sudo usermod -a -G video,render $USER 2>/dev/null || true
     
     # Set up environment
     print_info "Configuring ROCm environment..."
@@ -406,19 +394,35 @@ clone_repositories() {
     cd "$PROJECT_ROOT"
 }
 
-# Function to setup Python virtual environment (optional but recommended)
+# Function to setup Python virtual environment
 setup_python_env() {
-    print_info "Setting up Python environment..."
+    print_info "Setting up Python virtual environment..."
+    echo ""
     
     # Check Python version
     PYTHON_VERSION=$(python3 --version | awk '{print $2}' | cut -d'.' -f1,2)
     print_success "Python $PYTHON_VERSION detected"
     
-    # Upgrade pip
-    print_info "Upgrading pip..."
-    python3 -m pip install --upgrade pip -q
+    # Create virtual environment if it doesn't exist
+    if [ ! -d "$VENV_DIR" ]; then
+        print_info "Creating virtual environment at $VENV_DIR..."
+        python3 -m venv "$VENV_DIR"
+        print_success "Virtual environment created"
+    else
+        print_success "Virtual environment already exists"
+    fi
     
-    print_success "Python environment ready"
+    # Activate virtual environment
+    print_info "Activating virtual environment..."
+    source "$VENV_DIR/bin/activate"
+    print_success "Virtual environment activated"
+    
+    # Upgrade pip in the venv
+    print_info "Upgrading pip in virtual environment..."
+    pip install --upgrade pip -q
+    
+    print_success "Python virtual environment ready"
+    echo ""
 }
 
 # Function to install PyTorch with ROCm support
@@ -426,11 +430,17 @@ install_pytorch() {
     print_info "Installing PyTorch..."
     echo ""
     
+    # Ensure we're in the venv
+    if [ -z "$VIRTUAL_ENV" ]; then
+        print_warning "Virtual environment not active, activating..."
+        source "$VENV_DIR/bin/activate"
+    fi
+    
     if command_exists rocminfo && [ -n "$ROCM_VERSION" ]; then
         print_info "Installing PyTorch with ROCm $ROCM_VERSION support..."
         bash "$SCRIPT_DIR/setup.sh" --amd
     else
-        print_info "Installing generic PyTorch..."
+        print_info "Installing generic PyTorch (will use version from requirements.txt: 2.3.1+)..."
         bash "$SCRIPT_DIR/setup.sh"
     fi
     
@@ -442,15 +452,21 @@ setup_ai_models() {
     print_info "Setting up AI models..."
     echo ""
     
+    # Ensure we're in the venv
+    if [ -z "$VIRTUAL_ENV" ]; then
+        print_warning "Virtual environment not active, activating..."
+        source "$VENV_DIR/bin/activate"
+    fi
+    
     print_info "Checking for AI model dependencies..."
     
     # Check if transformers is installed
-    if python3 -c "import transformers" 2>/dev/null; then
+    if python -c "import transformers" 2>/dev/null; then
         print_success "Transformers library installed"
     else
         print_warning "Transformers library not found"
         print_info "Installing transformers..."
-        python3 -m pip install transformers>=4.36.0 -q
+        pip install transformers>=4.36.0 -q
     fi
     
     # Check if models are available
@@ -555,13 +571,19 @@ verify_installation() {
     print_info "Verifying installation..."
     echo ""
     
+    # Ensure we're in the venv
+    if [ -z "$VIRTUAL_ENV" ]; then
+        print_warning "Virtual environment not active, activating..."
+        source "$VENV_DIR/bin/activate"
+    fi
+    
     # Check Python packages
-    print_info "Checking Python packages..."
-    python3 -c "import flask; print('  Flask:', flask.__version__)" || print_error "Flask not installed"
-    python3 -c "import torch; print('  PyTorch:', torch.__version__)" || print_error "PyTorch not installed"
+    print_info "Checking Python packages (in venv)..."
+    python -c "import flask; print('  Flask:', flask.__version__)" || print_error "Flask not installed"
+    python -c "import torch; print('  PyTorch:', torch.__version__)" || print_error "PyTorch not installed"
     
     # Check ROCm/CUDA availability
-    python3 << 'PYTHON_CHECK'
+    python << 'PYTHON_CHECK'
 import torch
 if torch.cuda.is_available():
     print("  CUDA devices:", torch.cuda.device_count())
@@ -590,35 +612,10 @@ PYTHON_CHECK
 create_startup_script() {
     print_info "Creating startup helper script..."
     
-    STARTUP_SCRIPT="$PROJECT_ROOT/start_ui.sh"
+    # Note: start_ui.sh already exists in the project root
+    # We'll update it if needed, but leave the existing one for now
     
-    cat > "$STARTUP_SCRIPT" << 'EOF'
-#!/bin/bash
-# Quick start script for AROS-Cognito UI
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "Starting AROS-Cognito Monitoring UI..."
-echo ""
-
-# Get local IP
-LOCAL_IP=$(hostname -I | awk '{print $1}')
-
-echo "Access the UI at:"
-echo "  - Local:   http://localhost:5000"
-if [ -n "$LOCAL_IP" ]; then
-    echo "  - Network: http://$LOCAL_IP:5000"
-fi
-echo ""
-echo "Press Ctrl+C to stop"
-echo ""
-
-cd "$SCRIPT_DIR/ui"
-python3 app.py
-EOF
-    
-    chmod +x "$STARTUP_SCRIPT"
-    print_success "Startup script created: ./start_ui.sh"
+    print_success "Startup script exists: ./start_ui.sh (will be updated separately)"
 }
 
 # Function to display summary
@@ -633,12 +630,14 @@ display_summary() {
     
     print_success "System is ready for AI development!"
     echo ""
+    echo "Virtual Environment:"
+    echo "   ${GREEN}source venv/bin/activate${NC} (to activate)"
+    echo ""
     echo "Next Steps:"
     echo ""
     echo "1. Start the Monitoring UI:"
     echo "   ${GREEN}./start_ui.sh${NC}"
-    echo "   or"
-    echo "   ${GREEN}cd ui && python3 app.py${NC}"
+    echo "   (This will automatically activate the venv)"
     echo ""
     echo "2. Access the UI:"
     echo "   - Local:   ${BLUE}http://localhost:5000${NC}"
