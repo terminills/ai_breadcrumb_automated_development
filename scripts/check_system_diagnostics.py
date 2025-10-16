@@ -4,10 +4,11 @@ Comprehensive System Diagnostics for AROS-Cognito
 Checks PyTorch, CUDA, ROCm, models, and all dependencies with detailed version info
 """
 
-import sys
+import importlib
 import os
 import platform
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
@@ -135,26 +136,35 @@ class DiagnosticChecker:
     
     def check_required_packages(self) -> Dict:
         """Check all required Python packages"""
-        required = [
-            'flask', 'torch', 'transformers', 'GitPython', 'psutil', 
-            'colorama', 'pyyaml', 'tqdm', 'pyarrow', 'datasets'
-        ]
+        # Map package names to their import names
+        required = {
+            'flask': 'flask',
+            'torch': 'torch',
+            'transformers': 'transformers',
+            'GitPython': 'git',
+            'psutil': 'psutil',
+            'colorama': 'colorama',
+            'pyyaml': 'yaml',
+            'tqdm': 'tqdm',
+            'pyarrow': 'pyarrow',
+            'datasets': 'datasets'
+        }
         
         results = {}
-        for package in required:
+        for package_name, module_name in required.items():
             try:
-                mod = __import__(package)
+                mod = importlib.import_module(module_name)
                 version = getattr(mod, '__version__', 'unknown')
-                results[package] = {
+                results[package_name] = {
                     'installed': True,
                     'version': version
                 }
             except ImportError:
-                results[package] = {
+                results[package_name] = {
                     'installed': False,
                     'error': 'Not installed'
                 }
-                self.warnings.append(f"Package '{package}' not installed")
+                self.warnings.append(f"Package '{package_name}' not installed")
         
         return results
     
