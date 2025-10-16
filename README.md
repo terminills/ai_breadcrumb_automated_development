@@ -255,15 +255,15 @@ This bootstrap script will:
 - Prompt for GitHub token (first run only)
 - Clone both AROS-OLD and configure upstream
 - Initialize database schema
-- Install PyTorch 2.3.1+ (or 2.0.1 for ROCm 5.7.1 compatibility)
+- Install PyTorch 2.3.1+ (with ROCm 5.7 support when available)
 - Configure UI for network access
 - Verify the complete installation
 
 **Note:** 
 - The script runs as a regular user and asks once about system package installation
 - Virtual environment is created in `~/cognito-envs/ai_breadcrumb/` (configurable via `VENV_BASE`)
-- For ROCm 5.7.1 systems with Python 3.10, the script uses optimized AMD repository wheels (torch 2.0.1+rocm5.7)
-- For other systems, it installs PyTorch 2.3.1+ from requirements.txt
+- PyTorch 2.3.1 is installed from the official PyTorch repository with ROCm 5.7 support when ROCm is detected
+- For systems without ROCm, it installs generic PyTorch 2.3.1+ from requirements.txt
 
 After bootstrap completes, simply run:
 ```bash

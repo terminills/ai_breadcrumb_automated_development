@@ -1,5 +1,5 @@
 #!/bin/bash
-# Integration test for ROCm 5.7.1 PyTorch installation fix
+# Integration test for ROCm 5.7 PyTorch 2.3.1 installation
 # This test validates the logic without actually installing packages
 
 set -e
@@ -31,7 +31,7 @@ fail_count=0
 
 echo ""
 echo "╔════════════════════════════════════════════════════════════╗"
-echo "║   ROCm 5.7.1 PyTorch Installation Test                    ║"
+echo "║   ROCm 5.7 PyTorch 2.3.1 Installation Test                ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -46,106 +46,73 @@ else
     print_fail "ROCm 5.7 detection logic missing"
 fi
 
-# Test 2: Check for AMD repository wheel URLs
+# Test 2: Check for PyTorch 2.3.1 version variable
 test_count=$((test_count + 1))
-print_test "setup.sh contains AMD repository wheel URLs"
-if grep -q 'repo.radeon.com/rocm/manylinux/rocm-rel-5.7' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "setup.sh uses PYTORCH_VERSION=2.3.1"
+if grep -q 'PYTORCH_VERSION="2.3.1"' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
-    print_pass "AMD repository URLs present"
+    print_pass "PyTorch 2.3.1 version variable present"
 else
     fail_count=$((fail_count + 1))
-    print_fail "AMD repository URLs missing"
+    print_fail "PyTorch 2.3.1 version variable missing"
 fi
 
-# Test 3: Check for --ignore-installed flag
+# Test 3: Check for official PyTorch repository usage
 test_count=$((test_count + 1))
-print_test "setup.sh uses --ignore-installed flag"
-if grep -q -- '--ignore-installed' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "setup.sh uses official PyTorch repository"
+if grep -q 'download.pytorch.org/whl' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
-    print_pass "--ignore-installed flag present"
+    print_pass "Official PyTorch repository URL present"
 else
     fail_count=$((fail_count + 1))
-    print_fail "--ignore-installed flag missing"
+    print_fail "Official PyTorch repository URL missing"
 fi
 
-# Test 4: Check for torch 2.0.1+rocm5.7 wheel
+# Test 4: Check that old AMD repository URLs are removed
 test_count=$((test_count + 1))
-print_test "setup.sh references torch 2.0.1+rocm5.7"
-if grep -q 'torch-2.0.1%2Brocm5.7-cp310' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "setup.sh does not use old AMD repository wheels"
+if ! grep -q 'torch-2.0.1%2Brocm5.7-cp310' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
-    print_pass "torch 2.0.1+rocm5.7 wheel URL present"
+    print_pass "Old torch 2.0.1 wheel URL removed"
 else
     fail_count=$((fail_count + 1))
-    print_fail "torch 2.0.1+rocm5.7 wheel URL missing"
+    print_fail "Old torch 2.0.1 wheel URL still present"
 fi
 
-# Test 5: Check for torchvision 0.15.2+rocm5.7 wheel
+# Test 5: Check for proper ROCm version formatting
 test_count=$((test_count + 1))
-print_test "setup.sh references torchvision 0.15.2+rocm5.7"
-if grep -q 'torchvision-0.15.2%2Brocm5.7-cp310' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "setup.sh formats ROCm version correctly for PyTorch URL"
+if grep -q 'rocm_url_ver="rocm' "$PROJECT_ROOT/scripts/setup.sh" && grep -q 'rocm_ver' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
-    print_pass "torchvision 0.15.2+rocm5.7 wheel URL present"
+    print_pass "ROCm version formatting present"
 else
     fail_count=$((fail_count + 1))
-    print_fail "torchvision 0.15.2+rocm5.7 wheel URL missing"
+    print_fail "ROCm version formatting missing"
 fi
 
-# Test 6: Check for torchaudio 2.0.2 installation
+# Test 6: Check for torch/torchvision/torchaudio installation
 test_count=$((test_count + 1))
-print_test "setup.sh installs torchaudio 2.0.2"
-if grep -q 'torchaudio==2.0.2' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "setup.sh installs torch, torchvision, and torchaudio"
+if grep -q 'pip install torch==' "$PROJECT_ROOT/scripts/setup.sh" && grep -q 'torchvision torchaudio' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
-    print_pass "torchaudio 2.0.2 installation present"
+    print_pass "PyTorch stack installation present"
 else
     fail_count=$((fail_count + 1))
-    print_fail "torchaudio 2.0.2 installation missing"
+    print_fail "PyTorch stack installation missing"
 fi
 
-# Test 7: Check for numpy<2 force reinstall
+# Test 7: Check requirements.txt specifies torch>=2.3.1
 test_count=$((test_count + 1))
-print_test "setup.sh force reinstalls numpy<2"
-if grep -q 'numpy<2.*--force-reinstall' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "requirements.txt specifies torch>=2.3.1"
+if grep -q 'torch>=2.3.1' "$PROJECT_ROOT/requirements.txt"; then
     pass_count=$((pass_count + 1))
-    print_pass "numpy<2 force reinstall present"
+    print_pass "requirements.txt has correct PyTorch version"
 else
     fail_count=$((fail_count + 1))
-    print_fail "numpy<2 force reinstall missing"
+    print_fail "requirements.txt PyTorch version incorrect"
 fi
 
-# Test 8: Check for Python 3.10 version check
-test_count=$((test_count + 1))
-print_test "setup.sh checks for Python 3.10"
-if grep -q 'python_ver.*3.10' "$PROJECT_ROOT/scripts/setup.sh"; then
-    pass_count=$((pass_count + 1))
-    print_pass "Python 3.10 version check present"
-else
-    fail_count=$((fail_count + 1))
-    print_fail "Python 3.10 version check missing"
-fi
-
-# Test 9: Check troubleshooting documentation update
-test_count=$((test_count + 1))
-print_test "BOOTSTRAP_TROUBLESHOOTING.md has PyTorch installation section"
-if grep -q 'PyTorch Installation Issues' "$PROJECT_ROOT/BOOTSTRAP_TROUBLESHOOTING.md"; then
-    pass_count=$((pass_count + 1))
-    print_pass "PyTorch installation troubleshooting documented"
-else
-    fail_count=$((fail_count + 1))
-    print_fail "PyTorch installation troubleshooting missing"
-fi
-
-# Test 10: Check for distutils conflict documentation
-test_count=$((test_count + 1))
-print_test "Documentation covers distutils conflict"
-if grep -q 'distutils-installed-package' "$PROJECT_ROOT/BOOTSTRAP_TROUBLESHOOTING.md"; then
-    pass_count=$((pass_count + 1))
-    print_pass "distutils conflict documented"
-else
-    fail_count=$((fail_count + 1))
-    print_fail "distutils conflict documentation missing"
-fi
-
-# Test 11: Validate script syntax
+# Test 8: Validate script syntax
 test_count=$((test_count + 1))
 print_test "setup.sh has valid bash syntax"
 if bash -n "$PROJECT_ROOT/scripts/setup.sh"; then
@@ -156,10 +123,10 @@ else
     print_fail "setup.sh has syntax errors"
 fi
 
-# Test 12: Check for fallback mechanism
+# Test 9: Check for fallback mechanism
 test_count=$((test_count + 1))
-print_test "setup.sh has fallback to standard installation"
-if grep -q 'Falling back to standard installation' "$PROJECT_ROOT/scripts/setup.sh"; then
+print_test "setup.sh has fallback to unversioned installation"
+if grep -q 'Trying without specifying exact version' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
     print_pass "Fallback mechanism present"
 else
@@ -182,15 +149,14 @@ if [ $fail_count -eq 0 ]; then
     echo -e "${GREEN}✓ All tests passed!${NC}"
     echo ""
     echo "The following features are validated:"
-    echo "  ✓ ROCm 5.7.1 detection and special handling"
-    echo "  ✓ AMD repository wheel URLs"
-    echo "  ✓ --ignore-installed flag for distutils conflicts"
-    echo "  ✓ torch 2.0.1+rocm5.7 installation"
-    echo "  ✓ torchvision 0.15.2+rocm5.7 installation"
-    echo "  ✓ torchaudio 2.0.2 installation"
-    echo "  ✓ numpy<2 force reinstall"
-    echo "  ✓ Python 3.10 version check"
-    echo "  ✓ Comprehensive documentation"
+    echo "  ✓ ROCm 5.7 detection and handling"
+    echo "  ✓ PyTorch 2.3.1 version variable"
+    echo "  ✓ Official PyTorch repository usage"
+    echo "  ✓ Old AMD repository URLs removed"
+    echo "  ✓ ROCm version formatting for URLs"
+    echo "  ✓ PyTorch stack installation (torch, torchvision, torchaudio)"
+    echo "  ✓ requirements.txt specifies torch>=2.3.1"
+    echo "  ✓ Valid bash syntax"
     echo "  ✓ Fallback mechanism"
     echo ""
     exit 0
