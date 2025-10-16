@@ -75,10 +75,15 @@ class LocalModelLoader:
         """Get exploration configuration"""
         return self.config.get("exploration", {})
     
-    def load_model(self, model_name: str, **kwargs):
+    def load_model(self, model_name: str, use_mock_on_error: bool = True, **kwargs):
         """
         Load a model by name
         Returns the loaded model instance
+        
+        Args:
+            model_name: Name of the model to load ('codegen', 'llm')
+            use_mock_on_error: If True, fall back to mock model on error
+            **kwargs: Additional configuration options
         """
         if model_name in self.models:
             logger.info(f"Model {model_name} already loaded")
@@ -107,10 +112,43 @@ class LocalModelLoader:
         except ImportError as e:
             logger.error(f"Failed to import model {model_name}: {e}")
             logger.info("Some dependencies may be missing. Install with: pip install torch transformers")
+            if use_mock_on_error:
+                logger.warning(f"Falling back to mock {model_name} model")
+                return self._load_mock_model(model_name)
             raise
         except Exception as e:
             logger.error(f"Failed to load model {model_name}: {e}")
+            if use_mock_on_error:
+                logger.warning(f"Falling back to mock {model_name} model")
+                return self._load_mock_model(model_name)
             raise
+    
+    def _load_mock_model(self, model_name: str):
+        """
+        Load a mock model for testing/fallback when real models are unavailable
+        
+        Args:
+            model_name: Name of the model to mock
+            
+        Returns:
+            Mock model instance
+        """
+        from .mock_models import MockCodegenModel, MockLLM
+        
+        logger.info(f"Loading mock {model_name} model (AI features will be simulated)")
+        
+        if model_name == "codegen":
+            config = self.get_codegen_config()
+            model = MockCodegenModel(config)
+            self.models[model_name] = model
+            return model
+        elif model_name == "llm":
+            config = self.get_llm_config()
+            model = MockLLM(config)
+            self.models[model_name] = model
+            return model
+        else:
+            raise ValueError(f"Unknown model name for mocking: {model_name}")
     
     def unload_model(self, model_name: str):
         """Unload a model to free memory"""
