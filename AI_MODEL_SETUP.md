@@ -188,16 +188,32 @@ pip install torch transformers
 
 ### "cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'"
 
-This error occurs when using an incompatible version of transformers with PyTorch 2.3.1+. To fix:
+This error occurs when the `onnx` package is incompatible with PyTorch 2.3.1+. This is an ONNX compatibility issue, not a transformers issue.
 
-```bash
-pip install --upgrade transformers>=4.40.0
-```
+**Solutions (try in order):**
 
-Or reinstall dependencies:
-```bash
-pip install -r requirements.txt
-```
+1. **Install/upgrade ONNX** to a compatible version:
+   ```bash
+   pip install --upgrade onnx
+   ```
+
+2. **Upgrade transformers** (which may pull in compatible dependencies):
+   ```bash
+   pip install --upgrade transformers>=4.40.0
+   ```
+
+3. **Set environment variable** to disable ONNX functionality if not needed:
+   ```bash
+   export TORCH_ONNX_EXPERIMENTAL_RUNTIME_TYPE_CHECK=0
+   ```
+   Then run your code.
+
+4. **Reinstall all dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+**Note**: If you must use PyTorch 2.3.1 (cannot downgrade), ensure you have ONNX installed and compatible. Run `pip list | grep onnx` to check if ONNX is installed.
 
 ### "Failed to load model"
 

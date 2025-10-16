@@ -4,9 +4,9 @@
 Users may encounter errors when testing Llama models directly with the transformers `pipeline()` function. There are typically two issues:
 
 1. **Compatibility Error**: `ImportError: cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'`
-   - This occurs with incompatible PyTorch/Transformers versions
-   - **Fix**: `pip install --upgrade transformers>=4.40.0`
-   - See `AI_MODEL_SETUP.md` lines 189-200 for details
+   - This is an ONNX package compatibility issue with PyTorch 2.3.1+, not a transformers issue
+   - **Fix**: `pip install --upgrade onnx` or set environment variable (see AI_MODEL_SETUP.md)
+   - See `AI_MODEL_SETUP.md` for detailed troubleshooting steps
 
 2. **Parameter Naming Error**: Using `torch_dtype` instead of `dtype` with `pipeline()`
    - This is documented below
@@ -93,11 +93,18 @@ Our existing codebase already uses the correct parameters:
 ### Troubleshooting Steps
 If you encounter errors when testing Llama models:
 
-1. **First, fix compatibility issues**:
+1. **First, fix ONNX compatibility issues** (if you see DiagnosticOptions error):
    ```bash
+   # Try upgrading ONNX first
+   pip install --upgrade onnx
+   
+   # Or set environment variable to disable ONNX functionality
+   export TORCH_ONNX_EXPERIMENTAL_RUNTIME_TYPE_CHECK=0
+   
+   # Or upgrade transformers (may pull compatible dependencies)
    pip install --upgrade transformers>=4.40.0
    ```
-   This resolves the `DiagnosticOptions` import error.
+   See `AI_MODEL_SETUP.md` for detailed solutions.
 
 2. **Then, fix parameter naming**:
    - Change `torch_dtype="auto"` to `dtype="auto"` in your `pipeline()` call
