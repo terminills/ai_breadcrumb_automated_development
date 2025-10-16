@@ -4,12 +4,15 @@ Provides real-time monitoring of training, compilation, and error tracking
 """
 
 from flask import Flask, render_template, jsonify, request
+from flask_socketio import SocketIO, emit
 import json
 import os
 import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime
+import threading
+import time
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -18,6 +21,8 @@ from src.breadcrumb_parser import BreadcrumbParser, BreadcrumbValidator
 from src.compiler_loop import CompilerLoop, ErrorTracker, ReasoningTracker
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'aros-cognito-dev-secret'
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # Disable template caching for development and prevent browser caching
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
@@ -73,6 +78,12 @@ def index():
 def breadcrumbs_explorer():
     """Breadcrumb Explorer page"""
     return render_template('breadcrumbs.html', config=config)
+
+
+@app.route('/copilot')
+def copilot_sessions():
+    """Copilot Sessions page"""
+    return render_template('copilot.html', config=config)
 
 
 @app.route('/api/status')
@@ -1341,6 +1352,278 @@ def api_file_view():
         }), 500
 
 
+# ============================================================================
+# WebSocket Event Handlers for Real-time Updates
+# ============================================================================
+
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    print(f"Client connected: {request.sid}")
+    emit('connected', {'status': 'connected', 'message': 'Connected to AROS-Cognito Monitor'})
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnect"""
+    print(f"Client disconnected: {request.sid}")
+
+
+@socketio.on('subscribe_iteration')
+def handle_subscribe_iteration(data):
+    """Subscribe to iteration updates"""
+    print(f"Client {request.sid} subscribed to iteration updates")
+    emit('subscribed', {'channel': 'iteration', 'status': 'subscribed'})
+
+
+@socketio.on('subscribe_compilation')
+def handle_subscribe_compilation(data):
+    """Subscribe to compilation updates"""
+    print(f"Client {request.sid} subscribed to compilation updates")
+    emit('subscribed', {'channel': 'compilation', 'status': 'subscribed'})
+
+
+@socketio.on('request_status')
+def handle_request_status(data):
+    """Handle status request"""
+    state_file = logs_path / 'iteration_state.json'
+    
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+            emit('status_update', state)
+        except Exception as e:
+            emit('error', {'message': f'Failed to read status: {str(e)}'})
+    else:
+        emit('status_update', {'status': 'idle', 'message': 'No active iteration'})
+
+
+# ============================================================================
+# Copilot Session API Endpoints
+# ============================================================================
+
+# Active copilot sessions storage
+active_sessions = {}
+session_lock = threading.Lock()
+
+
+@app.route('/api/copilot/sessions', methods=['GET'])
+def api_copilot_sessions_list():
+    """List active copilot sessions"""
+    with session_lock:
+        sessions_list = [
+            {
+                'id': session_id,
+                'status': session_data.get('status', 'unknown'),
+                'task': session_data.get('task', ''),
+                'started_at': session_data.get('started_at', ''),
+                'current_phase': session_data.get('current_phase', 'none')
+            }
+            for session_id, session_data in active_sessions.items()
+        ]
+    
+    return jsonify({
+        'sessions': sessions_list,
+        'count': len(sessions_list)
+    })
+
+
+@app.route('/api/copilot/sessions', methods=['POST'])
+def api_copilot_session_create():
+    """Create a new copilot session"""
+    try:
+        data = request.get_json() or {}
+        
+        task_description = data.get('task', 'New development task')
+        project = data.get('project', 'radeonsi')
+        max_iterations = data.get('max_iterations', 10)
+        
+        session_id = f"copilot_{int(datetime.now().timestamp())}"
+        
+        with session_lock:
+            active_sessions[session_id] = {
+                'id': session_id,
+                'task': task_description,
+                'project': project,
+                'max_iterations': max_iterations,
+                'status': 'created',
+                'started_at': datetime.now().isoformat(),
+                'current_phase': 'initializing',
+                'phases': [],
+                'messages': []
+            }
+        
+        return jsonify({
+            'status': 'success',
+            'session_id': session_id,
+            'message': 'Copilot session created'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to create session: {str(e)}'
+        }), 500
+
+
+@app.route('/api/copilot/sessions/<session_id>', methods=['GET'])
+def api_copilot_session_get(session_id):
+    """Get copilot session details"""
+    with session_lock:
+        if session_id not in active_sessions:
+            return jsonify({
+                'status': 'error',
+                'message': 'Session not found'
+            }), 404
+        
+        session_data = active_sessions[session_id].copy()
+    
+    return jsonify({
+        'status': 'success',
+        'session': session_data
+    })
+
+
+@app.route('/api/copilot/sessions/<session_id>/start', methods=['POST'])
+def api_copilot_session_start(session_id):
+    """Start a copilot session"""
+    with session_lock:
+        if session_id not in active_sessions:
+            return jsonify({
+                'status': 'error',
+                'message': 'Session not found'
+            }), 404
+        
+        session_data = active_sessions[session_id]
+        
+        if session_data['status'] != 'created':
+            return jsonify({
+                'status': 'error',
+                'message': 'Session already started or completed'
+            }), 400
+        
+        session_data['status'] = 'running'
+        session_data['current_phase'] = 'exploration'
+    
+    # Start background thread to simulate iteration progress
+    def run_session_simulation():
+        """Simulate copilot session progress"""
+        phases = ['exploration', 'reasoning', 'generation', 'review', 'compilation']
+        
+        for phase in phases:
+            time.sleep(2)  # Simulate work
+            
+            with session_lock:
+                if session_id in active_sessions:
+                    active_sessions[session_id]['current_phase'] = phase
+                    active_sessions[session_id]['phases'].append({
+                        'name': phase,
+                        'status': 'completed',
+                        'timestamp': datetime.now().isoformat()
+                    })
+            
+            # Emit WebSocket update
+            socketio.emit('copilot_update', {
+                'session_id': session_id,
+                'phase': phase,
+                'status': 'completed'
+            })
+        
+        # Mark session as completed
+        with session_lock:
+            if session_id in active_sessions:
+                active_sessions[session_id]['status'] = 'completed'
+                active_sessions[session_id]['current_phase'] = 'done'
+        
+        socketio.emit('copilot_update', {
+            'session_id': session_id,
+            'status': 'completed'
+        })
+    
+    # Start simulation thread
+    thread = threading.Thread(target=run_session_simulation)
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Session started',
+        'session_id': session_id
+    })
+
+
+@app.route('/api/copilot/sessions/<session_id>/stop', methods=['POST'])
+def api_copilot_session_stop(session_id):
+    """Stop a copilot session"""
+    with session_lock:
+        if session_id not in active_sessions:
+            return jsonify({
+                'status': 'error',
+                'message': 'Session not found'
+            }), 404
+        
+        active_sessions[session_id]['status'] = 'stopped'
+        active_sessions[session_id]['current_phase'] = 'stopped'
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Session stopped'
+    })
+
+
+@app.route('/api/copilot/sessions/<session_id>', methods=['DELETE'])
+def api_copilot_session_delete(session_id):
+    """Delete a copilot session"""
+    with session_lock:
+        if session_id not in active_sessions:
+            return jsonify({
+                'status': 'error',
+                'message': 'Session not found'
+            }), 404
+        
+        del active_sessions[session_id]
+    
+    return jsonify({
+        'status': 'success',
+        'message': 'Session deleted'
+    })
+
+
+# ============================================================================
+# Background monitoring thread for state file changes
+# ============================================================================
+
+def monitor_iteration_state():
+    """Monitor iteration state file and emit updates via WebSocket"""
+    state_file = logs_path / 'iteration_state.json'
+    last_modified = 0
+    
+    while True:
+        try:
+            if state_file.exists():
+                current_modified = state_file.stat().st_mtime
+                
+                if current_modified > last_modified:
+                    last_modified = current_modified
+                    
+                    with open(state_file) as f:
+                        state = json.load(f)
+                    
+                    # Emit update via WebSocket
+                    socketio.emit('iteration_update', state)
+            
+            time.sleep(2)  # Check every 2 seconds
+        except Exception as e:
+            print(f"Error monitoring state: {e}")
+            time.sleep(5)
+
+
+# Start monitoring thread
+monitor_thread = threading.Thread(target=monitor_iteration_state, daemon=True)
+monitor_thread.start()
+
+
 if __name__ == '__main__':
     host = config['ui']['host']
     port = config['ui']['port']
@@ -1356,6 +1639,7 @@ if __name__ == '__main__':
     print("")
     print("╔════════════════════════════════════════════════════════════╗")
     print("║  AI Breadcrumb Development Monitor                        ║")
+    print("║  With WebSocket Support for Live Updates                  ║")
     print("╚════════════════════════════════════════════════════════════╝")
     print("")
     print("Access the UI at:")
@@ -1363,7 +1647,12 @@ if __name__ == '__main__':
     if local_ip != "unknown" and host == "0.0.0.0":
         print(f"  - Network: http://{local_ip}:{port}")
     print("")
+    print("Features:")
+    print("  ✓ Real-time iteration monitoring")
+    print("  ✓ WebSocket live updates")
+    print("  ✓ Copilot session management")
+    print("")
     print("Press Ctrl+C to stop")
     print("")
     
-    app.run(host=host, port=port, debug=False)
+    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)

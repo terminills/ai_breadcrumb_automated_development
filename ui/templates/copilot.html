@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copilot Sessions - AROS-Cognito</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .connection-status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        
+        .connection-status.connected {
+            background: rgba(74, 222, 128, 0.2);
+            border: 1px solid #4ade80;
+        }
+        
+        .connection-status.disconnected {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            background: rgba(0, 0, 0, 0.2);
+            color: white;
+            font-size: 1em;
+        }
+        
+        .sessions-list {
+            display: grid;
+            gap: 15px;
+        }
+        
+        .session-item {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .session-item.running {
+            border-left-color: #4ade80;
+        }
+        
+        .session-item.completed {
+            border-left-color: #60a5fa;
+        }
+        
+        .session-item.error {
+            border-left-color: #ef4444;
+        }
+        
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .session-id {
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        .session-status {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .phase-progress {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .phase {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .phase.completed {
+            background: rgba(74, 222, 128, 0.3);
+        }
+        
+        .phase.active {
+            background: rgba(251, 191, 36, 0.3);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .log-output {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 2px solid #667eea;
+            padding-left: 10px;
+        }
+        
+        .log-entry.success {
+            border-left-color: #4ade80;
+        }
+        
+        .log-entry.error {
+            border-left-color: #ef4444;
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .nav-links a {
+            color: #ffd700;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 1.1em;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Copilot Development Sessions</h1>
+            <p>Interactive AI Development with Live Updates</p>
+            <div id="connectionStatus" class="connection-status disconnected">
+                ⚫ Disconnected
+            </div>
+        </header>
+        
+        <div class="nav-links">
+            <a href="/">← Dashboard</a>
+            <a href="/breadcrumbs">Breadcrumbs</a>
+        </div>
+        
+        <!-- Create New Session -->
+        <div class="card">
+            <h2>Create New Copilot Session</h2>
+            <form id="createSessionForm">
+                <div class="form-group">
+                    <label for="taskDescription">Task Description:</label>
+                    <textarea id="taskDescription" name="task" rows="3" placeholder="Describe what you want the AI to develop..." required></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="project">Project:</label>
+                    <select id="project" name="project">
+                        <option value="radeonsi">RadeonSI Graphics Driver</option>
+                        <option value="graphics">Graphics Pipeline</option>
+                        <option value="kernel">Kernel Components</option>
+                        <option value="gallium">Gallium3D Backend</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="maxIterations">Max Iterations:</label>
+                    <input type="number" id="maxIterations" name="max_iterations" value="10" min="1" max="100">
+                </div>
+                
+                <button type="submit" class="btn btn-success">Create Session</button>
+            </form>
+        </div>
+        
+        <!-- Active Sessions -->
+        <div class="card">
+            <h2>Active Sessions</h2>
+            <div id="sessionsList" class="sessions-list">
+                <p style="opacity: 0.6;">No active sessions. Create one above to get started.</p>
+            </div>
+        </div>
+        
+        <!-- Live Updates Log -->
+        <div class="card">
+            <h2>Live Updates</h2>
+            <div id="liveLog" class="log-output">
+                <div class="log-entry">Waiting for updates...</div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // WebSocket connection
+        const socket = io();
+        
+        // Connection status
+        const statusElement = document.getElementById('connectionStatus');
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            statusElement.textContent = '🟢 Connected';
+            statusElement.className = 'connection-status connected';
+            addLogEntry('Connected to server', 'success');
+            
+            // Subscribe to updates
+            socket.emit('subscribe_iteration');
+        });
+        
+        socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            statusElement.textContent = '⚫ Disconnected';
+            statusElement.className = 'connection-status disconnected';
+            addLogEntry('Disconnected from server', 'error');
+        });
+        
+        socket.on('connected', (data) => {
+            console.log('Server confirmed connection:', data);
+            addLogEntry(data.message, 'success');
+        });
+        
+        socket.on('subscribed', (data) => {
+            console.log('Subscribed to channel:', data.channel);
+            addLogEntry(`Subscribed to ${data.channel} updates`, 'success');
+        });
+        
+        socket.on('iteration_update', (data) => {
+            console.log('Iteration update:', data);
+            addLogEntry(`Iteration ${data.current_iteration}/${data.total_iterations}: ${data.current_phase}`, 'success');
+            updateActiveSessions();
+        });
+        
+        socket.on('copilot_update', (data) => {
+            console.log('Copilot update:', data);
+            if (data.phase) {
+                addLogEntry(`Session ${data.session_id}: ${data.phase} - ${data.status}`, 'success');
+            } else if (data.status === 'completed') {
+                addLogEntry(`Session ${data.session_id}: Completed!`, 'success');
+            }
+            updateActiveSessions();
+        });
+        
+        // Add log entry
+        function addLogEntry(message, type = '') {
+            const logOutput = document.getElementById('liveLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.insertBefore(entry, logOutput.firstChild);
+            
+            // Keep only last 50 entries
+            while (logOutput.children.length > 50) {
+                logOutput.removeChild(logOutput.lastChild);
+            }
+        }
+        
+        // Create session form
+        document.getElementById('createSessionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                task: document.getElementById('taskDescription').value,
+                project: document.getElementById('project').value,
+                max_iterations: parseInt(document.getElementById('maxIterations').value)
+            };
+            
+            try {
+                const response = await fetch('/api/copilot/sessions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    addLogEntry(`Created session: ${data.session_id}`, 'success');
+                    document.getElementById('createSessionForm').reset();
+                    
+                    // Start the session
+                    startSession(data.session_id);
+                } else {
+                    addLogEntry(`Failed to create session: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addLogEntry(`Error creating session: ${error.message}`, 'error');
+            }
+        });
+        
+        // Start session
+        async function startSession(sessionId) {
+            try {
+                const response = await fetch(`/api/copilot/sessions/${sessionId}/start`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    addLogEntry(`Started session: ${sessionId}`, 'success');
+                    updateActiveSessions();
+                } else {
+                    addLogEntry(`Failed to start session: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addLogEntry(`Error starting session: ${error.message}`, 'error');
+            }
+        }
+        
+        // Stop session
+        async function stopSession(sessionId) {
+            try {
+                const response = await fetch(`/api/copilot/sessions/${sessionId}/stop`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    addLogEntry(`Stopped session: ${sessionId}`, 'success');
+                    updateActiveSessions();
+                }
+            } catch (error) {
+                addLogEntry(`Error stopping session: ${error.message}`, 'error');
+            }
+        }
+        
+        // Delete session
+        async function deleteSession(sessionId) {
+            if (!confirm(`Delete session ${sessionId}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/copilot/sessions/${sessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    addLogEntry(`Deleted session: ${sessionId}`, 'success');
+                    updateActiveSessions();
+                }
+            } catch (error) {
+                addLogEntry(`Error deleting session: ${error.message}`, 'error');
+            }
+        }
+        
+        // Update active sessions list
+        async function updateActiveSessions() {
+            try {
+                const response = await fetch('/api/copilot/sessions');
+                const data = await response.json();
+                
+                const sessionsList = document.getElementById('sessionsList');
+                
+                if (data.sessions.length === 0) {
+                    sessionsList.innerHTML = '<p style="opacity: 0.6;">No active sessions.</p>';
+                    return;
+                }
+                
+                sessionsList.innerHTML = data.sessions.map(session => `
+                    <div class="session-item ${session.status}">
+                        <div class="session-header">
+                            <span class="session-id">${session.id}</span>
+                            <span class="session-status">${session.status}</span>
+                        </div>
+                        <div style="margin: 10px 0;">
+                            <strong>Task:</strong> ${session.task}
+                        </div>
+                        <div style="margin: 5px 0; opacity: 0.8;">
+                            <strong>Started:</strong> ${new Date(session.started_at).toLocaleString()}
+                        </div>
+                        <div style="margin: 5px 0; opacity: 0.8;">
+                            <strong>Current Phase:</strong> ${session.current_phase}
+                        </div>
+                        <div style="margin-top: 15px;">
+                            ${session.status === 'running' ? 
+                                `<button class="btn btn-danger" onclick="stopSession('${session.id}')">Stop</button>` :
+                                `<button class="btn btn-danger" onclick="deleteSession('${session.id}')">Delete</button>`
+                            }
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error updating sessions:', error);
+            }
+        }
+        
+        // Initial load
+        updateActiveSessions();
+        
+        // Auto-refresh every 5 seconds
+        setInterval(updateActiveSessions, 5000);
+    </script>
+</body>
+</html>
