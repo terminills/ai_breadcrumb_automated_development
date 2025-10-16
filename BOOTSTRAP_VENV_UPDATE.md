@@ -35,7 +35,7 @@ Key changes:
 
 ### 3. setup.sh
 - **Venv compatibility**: Works correctly whether run in venv or system context
-- **PyTorch version**: Updated comments to clarify version usage (2.3.1+ generic, 2.0.1 for ROCm 5.7.1)
+- **PyTorch version**: Uses PyTorch 2.3.1 for all systems (with ROCm 5.7 support when available)
 
 Key changes:
 - Updated Python command detection to work with venv
@@ -117,7 +117,7 @@ New functionality tested:
 
 ## Compatibility Notes
 
-- **ROCm 5.7.1**: Still uses PyTorch 2.0.1 for compatibility with ROCm 5.7.1 wheels
+- **ROCm 5.7**: Uses PyTorch 2.3.1+rocm5.7 from official PyTorch repository
 - **Other systems**: Use PyTorch 2.3.1+ from requirements.txt
 - **Backward compatible**: Script detects if venv doesn't exist and provides helpful messages
 

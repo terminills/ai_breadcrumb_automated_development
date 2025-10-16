@@ -39,7 +39,7 @@ The script will ask you **once** if you want to install/upgrade system packages:
 6. **GitHub Token**: Prompts for and securely stores your GitHub token
 7. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
 8. **Database Schema**: Initializes and migrates database schema
-9. **PyTorch**: Installs PyTorch 2.3.1+ in venv (or 2.0.1 for ROCm 5.7.1 compatibility)
+9. **PyTorch**: Installs PyTorch 2.3.1+ in venv (with ROCm 5.7 support when available)
 10. **Network UI**: Configures UI for local network access
 11. **Verification**: Tests the complete installation
 

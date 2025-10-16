@@ -60,12 +60,10 @@ Failed to clone repository
    - Visit: https://rocmdocs.amd.com/
    - Follow Ubuntu 22.04.3 instructions
 
-5. Special handling for ROCm 5.7.1:
-   - PyTorch 2.0.1+rocm5.7 will be installed from AMD repository wheels
-   - torchvision 0.15.2+rocm5.7 will be installed from AMD repository wheels
-   - torchaudio 2.0.2 will be installed separately
-   - numpy<2 will be force reinstalled for compatibility
-   - Requires Python 3.10 for AMD wheels
+5. Special handling for ROCm 5.7:
+   - PyTorch 2.3.1+rocm5.7 will be installed from official PyTorch repository
+   - torchvision and torchaudio will be installed with ROCm 5.7 support
+   - Compatible with Python 3.8+
 
 6. Continue without ROCm:
    - Script will use CPU-only PyTorch
@@ -198,16 +196,12 @@ error: uninstall-distutils-installed-package
    curl -I https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/
    ```
 
-2. Manual installation for ROCm 5.7.1 (Python 3.10):
+2. Manual installation for ROCm 5.7:
    ```bash
-   pip install --ignore-installed \
-     https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torch-2.0.1%2Brocm5.7-cp310-cp310-linux_x86_64.whl \
-     https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/torchvision-0.15.2%2Brocm5.7-cp310-cp310-linux_x86_64.whl
-   pip install torchaudio==2.0.2
-   pip install "numpy<2" --force-reinstall
+   pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
    ```
 
-3. Try standard PyTorch installation:
+3. Alternative - try without specifying version:
    ```bash
    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
    ```
