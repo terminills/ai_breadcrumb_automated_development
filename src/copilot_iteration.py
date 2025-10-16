@@ -46,6 +46,10 @@ class CopilotStyleIteration:
         
         self.log_path.mkdir(parents=True, exist_ok=True)
         
+        # State file for UI
+        self.state_file = self.log_path / 'iteration_state.json'
+        self.history_file = self.log_path / 'iteration_history.json'
+        
         # Initialize components
         logger.info("Initializing Copilot-style iteration system...")
         
@@ -74,6 +78,18 @@ class CopilotStyleIteration:
         self.retry_count = 0
         self.iteration_history = []  # Track history across iterations
         self.learned_patterns = {}  # Track learned patterns
+        
+        # Current state for UI
+        self.current_state = {
+            'current_iteration': 0,
+            'total_iterations': max_iterations,
+            'current_phase': 'none',
+            'phase_progress': {},
+            'session_id': None,
+            'task_description': '',
+            'retry_count': 0,
+            'last_update': datetime.now().isoformat()
+        }
     
     def run_interactive_iteration(
         self,
@@ -95,6 +111,17 @@ class CopilotStyleIteration:
         self.current_iteration += 1
         iteration_start_time = datetime.now()
         self.retry_count = 0
+        
+        # Update state for UI
+        self.current_state.update({
+            'current_iteration': self.current_iteration,
+            'total_iterations': self.max_iterations,
+            'task_description': task.get('strategy', task.get('phase', 'unknown')),
+            'current_phase': 'starting',
+            'retry_count': 0,
+            'last_update': datetime.now().isoformat()
+        })
+        self._save_state()
         
         logger.info(f"\n{'='*60}")
         logger.info(f"Iteration {self.current_iteration}/{self.max_iterations}")
@@ -146,6 +173,7 @@ class CopilotStyleIteration:
         if result:
             self._track_iteration_history(result)
             self._learn_pattern(result)
+            self._add_to_history(result)  # Add to history file for UI
             
             # Save state periodically
             if self.current_iteration % 5 == 0:
@@ -154,6 +182,10 @@ class CopilotStyleIteration:
         # Max retries reached
         if self.retry_count >= effective_max_retries and not result['success']:
             logger.warning(f"\n⚠ Max retries ({effective_max_retries}) reached")
+        
+        # Mark iteration as complete in state
+        self.current_state['current_phase'] = 'complete'
+        self._save_state()
         
         return result
     
@@ -253,6 +285,11 @@ class CopilotStyleIteration:
         """Phase 1: Explore codebase like Copilot gathering context"""
         logger.info("\n--- Phase 1: Exploration ---")
         
+        # Update state
+        self.current_state['current_phase'] = 'exploration'
+        self.current_state['phase_progress']['exploration'] = 'running'
+        self._save_state()
+        
         # Explore related code
         phase = task.get('phase', 'unknown')
         logger.info(f"Exploring codebase for: {phase}")
@@ -283,14 +320,30 @@ class CopilotStyleIteration:
                 f"Found {exploration['breadcrumbs_analyzed']} breadcrumbs for context"
             )
             
+            # Update state with exploration results
+            self.current_state['exploration'] = {
+                'files_analyzed': exploration['files_analyzed'],
+                'breadcrumbs_analyzed': exploration['breadcrumbs_analyzed'],
+                'insights': exploration['insights'][:500]  # Truncate for UI
+            }
+            self.current_state['phase_progress']['exploration'] = 'completed'
+            self._save_state()
+            
         except Exception as e:
             logger.warning(f"Exploration failed: {e}")
             logger.info("Continuing without exploration insights...")
             self.reasoning_tracker.add_reasoning_step(f"Exploration failed: {e}")
+            self.current_state['phase_progress']['exploration'] = 'failed'
+            self._save_state()
     
     def _reasoning_phase(self):
         """Phase 2: Reason about the task like Copilot analyzing"""
         logger.info("\n--- Phase 2: Reasoning ---")
+        
+        # Update state
+        self.current_state['current_phase'] = 'reasoning'
+        self.current_state['phase_progress']['reasoning'] = 'running'
+        self._save_state()
         
         try:
             reasoning = self.session_manager.reason()
@@ -305,14 +358,28 @@ class CopilotStyleIteration:
                 f"Generated strategy: {reasoning['reasoning'][:100]}..."
             )
             
+            # Update state
+            self.current_state['reasoning'] = {
+                'strategy': reasoning['reasoning'][:500]
+            }
+            self.current_state['phase_progress']['reasoning'] = 'completed'
+            self._save_state()
+            
         except Exception as e:
             logger.warning(f"Reasoning failed: {e}")
             logger.info("Continuing with default strategy...")
             self.reasoning_tracker.add_reasoning_step(f"Reasoning failed: {e}")
+            self.current_state['phase_progress']['reasoning'] = 'failed'
+            self._save_state()
     
     def _generation_phase(self) -> Dict[str, Any]:
         """Phase 3: Generate code like Copilot suggesting"""
         logger.info("\n--- Phase 3: Code Generation ---")
+        
+        # Update state
+        self.current_state['current_phase'] = 'generation'
+        self.current_state['phase_progress']['generation'] = 'running'
+        self._save_state()
         
         try:
             generation = self.session_manager.generate(use_exploration=True)
@@ -328,11 +395,22 @@ class CopilotStyleIteration:
                 raw_thought=f"Iteration {generation['iteration']}"
             )
             
+            # Update state
+            self.current_state['generation'] = {
+                'code': generation['code'][:1000],  # Truncate for UI
+                'status': 'completed',
+                'length': len(generation['code'])
+            }
+            self.current_state['phase_progress']['generation'] = 'completed'
+            self._save_state()
+            
             return generation
             
         except Exception as e:
             logger.error(f"Generation failed: {e}")
             self.reasoning_tracker.add_reasoning_step(f"Generation failed: {e}")
+            self.current_state['phase_progress']['generation'] = 'failed'
+            self._save_state()
             return {
                 'code': '',
                 'error': str(e),
@@ -343,8 +421,15 @@ class CopilotStyleIteration:
         """Phase 4: Review generated code"""
         logger.info("\n--- Phase 4: Code Review ---")
         
+        # Update state
+        self.current_state['current_phase'] = 'review'
+        self.current_state['phase_progress']['review'] = 'running'
+        self._save_state()
+        
         if not generation_result.get('code'):
             logger.warning("No code to review")
+            self.current_state['phase_progress']['review'] = 'skipped'
+            self._save_state()
             return {'review': 'No code generated', 'has_errors': True}
         
         try:
@@ -355,10 +440,21 @@ class CopilotStyleIteration:
             logger.info("Code review completed")
             logger.info(f"Review preview: {review['review'][:200]}...")
             
+            # Update state
+            self.current_state['review'] = {
+                'review': review['review'][:500],
+                'status': 'completed',
+                'has_errors': review.get('has_errors', False)
+            }
+            self.current_state['phase_progress']['review'] = 'completed'
+            self._save_state()
+            
             return review
             
         except Exception as e:
             logger.warning(f"Review failed: {e}")
+            self.current_state['phase_progress']['review'] = 'failed'
+            self._save_state()
             return {
                 'review': f'Review failed: {e}',
                 'has_errors': True
@@ -367,6 +463,11 @@ class CopilotStyleIteration:
     def _compilation_phase(self, generation_result: Dict[str, Any]) -> Dict[str, Any]:
         """Phase 5: Compile and test the generated code"""
         logger.info("\n--- Phase 5: Compilation & Testing ---")
+        
+        # Update state
+        self.current_state['current_phase'] = 'compilation'
+        self.current_state['phase_progress']['compilation'] = 'running'
+        self._save_state()
         
         # In a real scenario, would write code to file and compile
         # For demonstration, simulate compilation
@@ -395,6 +496,15 @@ class CopilotStyleIteration:
         else:
             logger.info("✓ Compilation successful")
         
+        # Update state
+        self.current_state['compilation'] = {
+            'success': success,
+            'errors': compile_result['errors'],
+            'warnings': compile_result['warnings']
+        }
+        self.current_state['phase_progress']['compilation'] = 'completed' if success else 'failed'
+        self._save_state()
+        
         return compile_result
     
     def _learning_phase(
@@ -404,6 +514,11 @@ class CopilotStyleIteration:
     ) -> bool:
         """Phase 6: Learn from compilation and review results"""
         logger.info("\n--- Phase 6: Learning ---")
+        
+        # Update state
+        self.current_state['current_phase'] = 'learning'
+        self.current_state['phase_progress']['learning'] = 'running'
+        self._save_state()
         
         success = compile_result['success'] and not review_result.get('has_errors')
         
@@ -417,6 +532,8 @@ class CopilotStyleIteration:
         
         if success:
             logger.info("✓ Iteration successful - no errors to learn from")
+            self.current_state['phase_progress']['learning'] = 'completed'
+            self._save_state()
             return True
         
         # Track errors and get suggestions
@@ -989,6 +1106,44 @@ class CopilotStyleIteration:
         except Exception as e:
             logger.error(f"Failed to import patterns: {e}")
             return False
+    
+    def _save_state(self):
+        """Save current iteration state to file for UI"""
+        try:
+            self.current_state['last_update'] = datetime.now().isoformat()
+            with open(self.state_file, 'w') as f:
+                json.dump(self.current_state, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save state: {e}")
+    
+    def _add_to_history(self, iteration_result: Dict[str, Any]):
+        """Add iteration result to history file"""
+        try:
+            # Load existing history
+            history = []
+            if self.history_file.exists():
+                with open(self.history_file) as f:
+                    history = json.load(f)
+            
+            # Add new iteration
+            history.append({
+                'iteration': iteration_result.get('iteration'),
+                'success': iteration_result.get('success'),
+                'timestamp': datetime.now().isoformat(),
+                'timings': iteration_result.get('timings', {}),
+                'retry_count': iteration_result.get('retry_count', 0)
+            })
+            
+            # Keep last 100 iterations
+            if len(history) > 100:
+                history = history[-100:]
+            
+            # Save back
+            with open(self.history_file, 'w') as f:
+                json.dump(history, f, indent=2)
+                
+        except Exception as e:
+            logger.error(f"Failed to add to history: {e}")
     
     def get_analytics(self) -> IterationAnalytics:
         """
