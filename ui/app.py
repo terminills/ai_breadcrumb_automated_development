@@ -10,6 +10,7 @@ import sys
 import subprocess
 from pathlib import Path
 from datetime import datetime
+import threading
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -73,6 +74,12 @@ def index():
 def breadcrumbs_explorer():
     """Breadcrumb Explorer page"""
     return render_template('breadcrumbs.html', config=config)
+
+
+@app.route('/sessions')
+def sessions_page():
+    """Development Sessions page"""
+    return render_template('sessions.html', config=config)
 
 
 @app.route('/api/status')
@@ -1339,6 +1346,180 @@ def api_file_view():
             'status': 'error',
             'message': f'Error processing file: {str(e)}'
         }), 500
+
+
+# ============================================================================
+# Session Management API - Integrated with CopilotStyleIteration
+# ============================================================================
+
+# Track running session processes
+running_sessions = {}
+session_lock = threading.Lock()
+
+
+@app.route('/api/sessions', methods=['GET'])
+def api_sessions_list():
+    """List active and recent sessions"""
+    # Check iteration state file for current session
+    state_file = logs_path / 'iteration_state.json'
+    history_file = logs_path / 'iteration_history.json'
+    
+    sessions_list = []
+    
+    # Get current/recent session from state file
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+            
+            # Create session info from state
+            session_info = {
+                'id': state.get('session_id', 'current'),
+                'status': 'running' if state.get('current_phase') not in ['none', 'done'] else 'completed',
+                'task': state.get('task_description', ''),
+                'started_at': state.get('started_at', state.get('last_update', '')),
+                'current_phase': state.get('current_phase', 'none'),
+                'current_iteration': state.get('current_iteration', 0),
+                'total_iterations': state.get('total_iterations', 0)
+            }
+            sessions_list.append(session_info)
+        except Exception as e:
+            print(f"Error reading state file: {e}")
+    
+    # Add info about running processes
+    with session_lock:
+        for session_id, process_info in running_sessions.items():
+            if process_info['process'].poll() is None:  # Still running
+                sessions_list.append({
+                    'id': session_id,
+                    'status': 'running',
+                    'task': process_info['task'],
+                    'started_at': process_info['started_at'],
+                    'current_phase': 'processing',
+                    'project': process_info['project']
+                })
+    
+    return jsonify({
+        'sessions': sessions_list,
+        'count': len(sessions_list)
+    })
+
+
+@app.route('/api/sessions', methods=['POST'])
+def api_session_create():
+    """Start a new development session using the real iteration system"""
+    try:
+        data = request.get_json() or {}
+        
+        task_description = data.get('task', 'New development task')
+        project = data.get('project', 'radeonsi')
+        max_iterations = data.get('max_iterations', 10)
+        
+        # Generate session ID
+        session_id = f"session_{int(datetime.now().timestamp())}"
+        
+        # Prepare the command to run the real iteration script
+        script_path = Path(__file__).parent.parent / 'scripts' / 'run_copilot_iteration.sh'
+        aros_path = Path(__file__).parent.parent / config['aros_local_path']
+        log_path = logs_path / 'copilot_iteration'
+        
+        if not aros_path.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'AROS repository not cloned. Please clone it first.'
+            }), 400
+        
+        # Start the iteration process in background
+        cmd = [
+            str(script_path),
+            project,
+            str(max_iterations),
+            str(aros_path),
+            str(log_path)
+        ]
+        
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # Track the running process
+        with session_lock:
+            running_sessions[session_id] = {
+                'process': process,
+                'task': task_description,
+                'project': project,
+                'started_at': datetime.now().isoformat(),
+                'max_iterations': max_iterations
+            }
+        
+        return jsonify({
+            'status': 'success',
+            'session_id': session_id,
+            'message': 'Session started'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to create session: {str(e)}'
+        }), 500
+
+
+@app.route('/api/sessions/<session_id>', methods=['GET'])
+def api_session_get(session_id):
+    """Get session details from state file"""
+    state_file = logs_path / 'iteration_state.json'
+    
+    if not state_file.exists():
+        return jsonify({
+            'status': 'error',
+            'message': 'No active session found'
+        }), 404
+    
+    try:
+        with open(state_file) as f:
+            state = json.load(f)
+        
+        return jsonify({
+            'status': 'success',
+            'session': {
+                'id': state.get('session_id', session_id),
+                'current_iteration': state.get('current_iteration', 0),
+                'total_iterations': state.get('total_iterations', 0),
+                'current_phase': state.get('current_phase', 'none'),
+                'task': state.get('task_description', ''),
+                'phase_progress': state.get('phase_progress', {}),
+                'retry_count': state.get('retry_count', 0),
+                'last_update': state.get('last_update', '')
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to read session: {str(e)}'
+        }), 500
+
+
+@app.route('/api/sessions/<session_id>/stop', methods=['POST'])
+def api_session_stop(session_id):
+    """Stop a running session"""
+    with session_lock:
+        if session_id in running_sessions:
+            process_info = running_sessions[session_id]
+            if process_info['process'].poll() is None:
+                process_info['process'].terminate()
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Session stopped'
+                })
+    
+    return jsonify({
+        'status': 'error',
+        'message': 'Session not found or already stopped'
+    }), 404
 
 
 if __name__ == '__main__':
