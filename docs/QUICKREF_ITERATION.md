@@ -2,7 +2,43 @@
 
 ## Key Features
 
-### 1. Checkpoint/Resume
+### 1. Pattern Recommendations
+```python
+# Get AI-recommended approach for a task
+recommendation = iteration.get_pattern_recommendation('SHADER_COMPILATION', 'HIGH')
+print(f"Success probability: {recommendation['success_probability']*100:.0f}%")
+print(f"Suggested retries: {recommendation['suggested_retries']}")
+print(f"Estimated time: {recommendation['estimated_time']:.0f}s")
+```
+
+### 2. Checkpoint Diff
+```python
+# Compare two checkpoints
+diff = session.compare_checkpoints(checkpoint1_path, checkpoint2_path)
+for line in diff['summary']:
+    print(line)
+```
+
+### 3. Pattern Export/Import
+```python
+# Export patterns
+export_path = iteration.export_learned_patterns('patterns.json')
+
+# Import patterns (merge mode)
+iteration.import_learned_patterns('patterns.json', merge=True)
+```
+
+### 4. Enhanced Analytics
+```python
+# Get comprehensive analytics
+analytics = iteration.get_analytics()
+summary = analytics.get_performance_summary()
+
+# Generate full report
+report = iteration.generate_analytics_report('report.txt')
+```
+
+### 5. Checkpoint/Resume
 ```python
 # Save checkpoint
 checkpoint_path = session.save_checkpoint("feature_v1")

@@ -17,6 +17,7 @@ from src.local_models import LocalModelLoader
 from src.interactive_session import SessionManager
 from src.breadcrumb_parser import BreadcrumbParser
 from src.compiler_loop import CompilerLoop, ErrorTracker, ReasoningTracker
+from src.iteration_analytics import IterationAnalytics
 
 logger = logging.getLogger(__name__)
 
@@ -715,6 +716,118 @@ class CopilotStyleIteration:
             'overall_success_rate': sum(1 for h in self.iteration_history if h['success']) / len(self.iteration_history) if self.iteration_history else 0
         }
     
+    def get_pattern_recommendation(self, phase: str, complexity: str = 'MEDIUM') -> Dict[str, Any]:
+        """
+        Get recommendations based on learned patterns for a specific phase
+        
+        Args:
+            phase: The phase/task type to get recommendations for
+            complexity: Estimated task complexity (LOW, MEDIUM, HIGH, CRITICAL)
+            
+        Returns:
+            Dictionary with recommendations including:
+            - suggested_retries: Recommended retry count
+            - estimated_time: Estimated completion time
+            - success_probability: Estimated success probability
+            - similar_tasks: List of similar completed tasks
+            - best_practices: Recommendations based on history
+        """
+        recommendation = {
+            'phase': phase,
+            'complexity': complexity,
+            'suggested_retries': self.max_retries,
+            'estimated_time': 60.0,
+            'success_probability': 0.5,
+            'similar_tasks': [],
+            'best_practices': []
+        }
+        
+        # Check if we have learned patterns for this phase
+        if phase in self.learned_patterns:
+            pattern = self.learned_patterns[phase]
+            
+            # Calculate success probability
+            if pattern['total_attempts'] > 0:
+                recommendation['success_probability'] = pattern['successes'] / pattern['total_attempts']
+            
+            # Suggest retry count based on historical average
+            if pattern['avg_retries'] > 0:
+                # Adjust based on complexity
+                complexity_multiplier = {
+                    'LOW': 0.7,
+                    'MEDIUM': 1.0,
+                    'HIGH': 1.3,
+                    'CRITICAL': 1.5
+                }.get(complexity, 1.0)
+                
+                recommended_retries = int(pattern['avg_retries'] * complexity_multiplier)
+                recommendation['suggested_retries'] = max(1, min(recommended_retries, 8))
+            
+            # Estimate time based on historical average
+            if pattern['avg_time'] > 0:
+                complexity_multiplier = {
+                    'LOW': 0.8,
+                    'MEDIUM': 1.0,
+                    'HIGH': 1.4,
+                    'CRITICAL': 2.0
+                }.get(complexity, 1.0)
+                
+                recommendation['estimated_time'] = pattern['avg_time'] * complexity_multiplier
+            
+            # Add best practices based on success rate
+            if recommendation['success_probability'] >= 0.8:
+                recommendation['best_practices'].append(
+                    f"High success rate ({recommendation['success_probability']*100:.0f}%) for this phase. "
+                    f"Average completion time is {pattern['avg_time']:.1f}s."
+                )
+            elif recommendation['success_probability'] >= 0.5:
+                recommendation['best_practices'].append(
+                    f"Moderate success rate ({recommendation['success_probability']*100:.0f}%). "
+                    f"Consider using {recommendation['suggested_retries']} retries for better outcomes."
+                )
+            else:
+                recommendation['best_practices'].append(
+                    f"Low success rate ({recommendation['success_probability']*100:.0f}%) for this phase. "
+                    f"Review approach carefully and consider increasing exploration depth."
+                )
+        else:
+            # No pattern data available - use defaults with warnings
+            recommendation['best_practices'].append(
+                f"No historical data for {phase}. Using default settings."
+            )
+            recommendation['best_practices'].append(
+                "Consider starting with thorough exploration to establish patterns."
+            )
+        
+        # Find similar tasks from history
+        similar_tasks = [
+            {
+                'iteration': h['iteration'],
+                'success': h['success'],
+                'retry_count': h['retry_count'],
+                'time': h['total_time'],
+                'phase': h.get('phase', 'unknown')
+            }
+            for h in self.iteration_history
+            if h.get('phase') == phase
+        ]
+        
+        recommendation['similar_tasks'] = similar_tasks[-5:]  # Last 5 similar tasks
+        
+        # Add recommendations based on recent trends
+        if len(similar_tasks) >= 3:
+            recent_success_rate = sum(1 for t in similar_tasks[-3:] if t['success']) / 3
+            if recent_success_rate > recommendation['success_probability']:
+                recommendation['best_practices'].append(
+                    "Recent trend shows improving success rate. Current approach is working well."
+                )
+            elif recent_success_rate < recommendation['success_probability']:
+                recommendation['best_practices'].append(
+                    "Recent trend shows declining success rate. Consider reviewing approach."
+                )
+        
+        return recommendation
+    
     def save_iteration_state(self) -> str:
         """
         Save the current iteration state for recovery
@@ -771,6 +884,133 @@ class CopilotStyleIteration:
         except Exception as e:
             logger.warning(f"Could not load iteration state: {e}")
             return False
+    
+    def export_learned_patterns(self, export_path: Optional[str] = None) -> str:
+        """
+        Export learned patterns to a file for sharing between projects
+        
+        Args:
+            export_path: Optional path to export file (uses default if not provided)
+            
+        Returns:
+            Path to exported patterns file
+        """
+        if not export_path:
+            export_path = self.log_path / 'learned_patterns_export.json'
+        
+        export_data = {
+            'project_name': self.project_name,
+            'export_time': datetime.now().isoformat(),
+            'learned_patterns': self.learned_patterns,
+            'total_iterations': len(self.iteration_history),
+            'overall_success_rate': sum(1 for h in self.iteration_history if h['success']) / len(self.iteration_history) if self.iteration_history else 0,
+            'metadata': {
+                'version': '1.0',
+                'format': 'copilot_iteration_patterns'
+            }
+        }
+        
+        try:
+            with open(export_path, 'w') as f:
+                json.dump(export_data, f, indent=2)
+            logger.info(f"Exported learned patterns to {export_path}")
+            return str(export_path)
+        except Exception as e:
+            logger.error(f"Failed to export patterns: {e}")
+            raise
+    
+    def import_learned_patterns(self, import_path: str, merge: bool = True) -> bool:
+        """
+        Import learned patterns from another project
+        
+        Args:
+            import_path: Path to patterns export file
+            merge: If True, merge with existing patterns; if False, replace them
+            
+        Returns:
+            True if patterns imported successfully
+        """
+        try:
+            with open(import_path, 'r') as f:
+                import_data = json.load(f)
+            
+            # Validate format
+            if import_data.get('metadata', {}).get('format') != 'copilot_iteration_patterns':
+                logger.warning(f"Import file may not be in correct format")
+            
+            imported_patterns = import_data.get('learned_patterns', {})
+            
+            if merge:
+                # Merge patterns - average the values for existing patterns
+                for phase, pattern in imported_patterns.items():
+                    if phase in self.learned_patterns:
+                        # Merge existing pattern
+                        existing = self.learned_patterns[phase]
+                        
+                        # Calculate weighted average based on total attempts
+                        total_attempts = existing['total_attempts'] + pattern['total_attempts']
+                        
+                        merged = {
+                            'successes': existing['successes'] + pattern['successes'],
+                            'total_attempts': total_attempts,
+                            'avg_retries': (
+                                existing['avg_retries'] * existing['total_attempts'] +
+                                pattern['avg_retries'] * pattern['total_attempts']
+                            ) / total_attempts,
+                            'avg_time': (
+                                existing['avg_time'] * existing['total_attempts'] +
+                                pattern['avg_time'] * pattern['total_attempts']
+                            ) / total_attempts,
+                            'common_approaches': list(set(
+                                existing.get('common_approaches', []) +
+                                pattern.get('common_approaches', [])
+                            ))
+                        }
+                        
+                        self.learned_patterns[phase] = merged
+                        logger.info(f"Merged pattern for {phase}")
+                    else:
+                        # Add new pattern
+                        self.learned_patterns[phase] = pattern
+                        logger.info(f"Added new pattern for {phase}")
+            else:
+                # Replace all patterns
+                self.learned_patterns = imported_patterns
+                logger.info(f"Replaced all patterns with imported data")
+            
+            # Save updated patterns
+            self.save_iteration_state()
+            
+            logger.info(f"Successfully imported patterns from {import_path}")
+            logger.info(f"Imported patterns for {len(imported_patterns)} phases")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to import patterns: {e}")
+            return False
+    
+    def get_analytics(self) -> IterationAnalytics:
+        """
+        Get analytics engine for detailed performance analysis
+        
+        Returns:
+            IterationAnalytics instance with current data
+        """
+        return IterationAnalytics(self.iteration_history, self.learned_patterns)
+    
+    def generate_analytics_report(self, output_path: Optional[str] = None) -> str:
+        """
+        Generate comprehensive analytics report
+        
+        Args:
+            output_path: Optional path to save report
+            
+        Returns:
+            Report as formatted string
+        """
+        analytics = self.get_analytics()
+        return analytics.generate_report(output_path)
 
 
 def main():
