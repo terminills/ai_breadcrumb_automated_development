@@ -487,6 +487,14 @@
             </div>
         </div>
         
+        <!-- Iteration History Timeline -->
+        <div class="card">
+            <h2>📊 Iteration History</h2>
+            <div class="log-container" id="iterationHistoryTimeline">
+                <div class="loading">Loading iteration history...</div>
+            </div>
+        </div>
+        
         <!-- Pattern Usage Section -->
         <div class="card">
             <h2>Pattern Usage Statistics</h2>
@@ -807,6 +815,9 @@
             
             // Update git history status
             updateGitHistoryStatus();
+            
+            // Update iteration history
+            updateIterationHistory();
         }
         
         // Trigger breadcrumb scan
@@ -1279,6 +1290,65 @@
                     logContainer.innerHTML = '<div class="log-entry" style="color: #4ade80;">✓ Compilation successful</div>';
                 }
             }
+        }
+        
+        // Update iteration history timeline
+        async function updateIterationHistory() {
+            const history = await fetchData('/api/iteration/history');
+            const container = document.getElementById('iterationHistoryTimeline');
+            
+            if (!history || !history.history || history.history.length === 0) {
+                container.innerHTML = '<div class="loading">No iteration history yet</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            // Display last 10 iterations
+            history.history.slice(-10).reverse().forEach((iter, index) => {
+                const success = iter.success;
+                const statusIcon = success ? '✓' : '✗';
+                const statusClass = success ? 'success-count' : 'error-count';
+                const timings = iter.timings || {};
+                const totalTime = Object.values(timings).reduce((a, b) => a + b, 0);
+                
+                // Validate timestamp
+                let timestamp = 'Unknown time';
+                if (iter.timestamp) {
+                    try {
+                        const date = new Date(iter.timestamp);
+                        if (!isNaN(date.getTime())) {
+                            timestamp = date.toLocaleString();
+                        }
+                    } catch (e) {
+                        console.error('Invalid timestamp:', iter.timestamp);
+                    }
+                }
+                
+                const div = document.createElement('div');
+                div.className = 'log-entry';
+                div.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span class="${statusClass}" style="font-size: 1.2em;">${statusIcon}</span>
+                            <strong>Iteration ${iter.iteration}</strong>
+                            ${iter.retry_count > 0 ? `<span style="opacity: 0.7;">(${iter.retry_count} retries)</span>` : ''}
+                        </div>
+                        <div style="text-align: right; font-size: 0.9em;">
+                            <div>${totalTime.toFixed(1)}s total</div>
+                            <div style="opacity: 0.7; font-size: 0.8em;">${timestamp}</div>
+                        </div>
+                    </div>
+                    ${timings && Object.keys(timings).length > 0 ? `
+                        <div style="margin-top: 8px; font-size: 0.85em; opacity: 0.8;">
+                            ${Object.entries(timings).map(([phase, time]) => 
+                                `${phase}: ${time.toFixed(1)}s`
+                            ).join(' • ')}
+                        </div>
+                    ` : ''}
+                `;
+                container.appendChild(div);
+            });
         }
         
         // Initial load
