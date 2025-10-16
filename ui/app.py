@@ -56,6 +56,12 @@ def index():
     return render_template('index.html', config=config)
 
 
+@app.route('/breadcrumbs')
+def breadcrumbs_explorer():
+    """Breadcrumb Explorer page"""
+    return render_template('breadcrumbs.html', config=config)
+
+
 @app.route('/api/status')
 def api_status():
     """Get overall system status"""
@@ -132,6 +138,292 @@ def api_breadcrumbs():
             for b in parser.breadcrumbs[:20]
         ]
     })
+
+
+@app.route('/api/breadcrumbs/search')
+def api_breadcrumbs_search():
+    """Search and filter breadcrumbs with pagination"""
+    # Get query parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    search_query = request.args.get('q', '', type=str)
+    
+    # Filters
+    phase_filter = request.args.get('phase', '', type=str)
+    status_filter = request.args.get('status', '', type=str)
+    marker_filter = request.args.get('marker', '', type=str)
+    file_filter = request.args.get('file', '', type=str)
+    min_complexity = request.args.get('min_complexity', None, type=int)
+    max_complexity = request.args.get('max_complexity', None, type=int)
+    
+    # Load breadcrumbs
+    breadcrumbs_file = Path(__file__).parent.parent / 'breadcrumbs.json'
+    
+    if not breadcrumbs_file.exists():
+        return jsonify({
+            'breadcrumbs': [],
+            'total': 0,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': 0
+        })
+    
+    try:
+        with open(breadcrumbs_file) as f:
+            data = json.load(f)
+        
+        breadcrumbs = data.get('breadcrumbs', [])
+        
+        # Apply filters
+        filtered = []
+        for b in breadcrumbs:
+            # Search filter
+            if search_query:
+                search_lower = search_query.lower()
+                searchable = ' '.join([
+                    str(b.get('ai_note', '')),
+                    str(b.get('fix_reason', '')),
+                    str(b.get('linux_ref', '')),
+                    str(b.get('details', '')),
+                    str(b.get('file_path', ''))
+                ]).lower()
+                if search_lower not in searchable:
+                    continue
+            
+            # Phase filter
+            if phase_filter and b.get('phase', '') != phase_filter:
+                continue
+            
+            # Status filter
+            if status_filter and b.get('status', '') != status_filter:
+                continue
+            
+            # Marker filter
+            if marker_filter and b.get('ai_breadcrumb', '') != marker_filter:
+                continue
+            
+            # File filter
+            if file_filter and file_filter.lower() not in b.get('file_path', '').lower():
+                continue
+            
+            # Complexity filter
+            complexity = b.get('ai_complexity')
+            if complexity:
+                try:
+                    complexity_val = int(complexity)
+                    if min_complexity is not None and complexity_val < min_complexity:
+                        continue
+                    if max_complexity is not None and complexity_val > max_complexity:
+                        continue
+                except (ValueError, TypeError):
+                    pass
+            
+            filtered.append(b)
+        
+        # Pagination
+        total = len(filtered)
+        total_pages = (total + per_page - 1) // per_page
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated = filtered[start:end]
+        
+        return jsonify({
+            'breadcrumbs': paginated,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages
+        })
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to search breadcrumbs: {str(e)}'
+        }), 500
+
+
+@app.route('/api/breadcrumbs/<int:breadcrumb_id>')
+def api_breadcrumb_detail(breadcrumb_id):
+    """Get detailed breadcrumb information by index"""
+    breadcrumbs_file = Path(__file__).parent.parent / 'breadcrumbs.json'
+    
+    if not breadcrumbs_file.exists():
+        return jsonify({'error': 'Breadcrumbs file not found'}), 404
+    
+    try:
+        with open(breadcrumbs_file) as f:
+            data = json.load(f)
+        
+        breadcrumbs = data.get('breadcrumbs', [])
+        
+        if breadcrumb_id < 0 or breadcrumb_id >= len(breadcrumbs):
+            return jsonify({'error': 'Breadcrumb not found'}), 404
+        
+        breadcrumb = breadcrumbs[breadcrumb_id]
+        
+        # Find related breadcrumbs (same file or same marker)
+        related = []
+        file_path = breadcrumb.get('file_path', '')
+        marker = breadcrumb.get('ai_breadcrumb', '')
+        
+        for i, b in enumerate(breadcrumbs):
+            if i == breadcrumb_id:
+                continue
+            
+            if b.get('file_path') == file_path or (marker and b.get('ai_breadcrumb') == marker):
+                related.append({
+                    'id': i,
+                    'file': b.get('file_path', ''),
+                    'line': b.get('line_number', 0),
+                    'phase': b.get('phase', ''),
+                    'status': b.get('status', '')
+                })
+        
+        return jsonify({
+            'breadcrumb': breadcrumb,
+            'related': related[:20]  # Limit to 20 related items
+        })
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get breadcrumb details: {str(e)}'
+        }), 500
+
+
+@app.route('/api/breadcrumbs/graph')
+def api_breadcrumbs_graph():
+    """Get breadcrumb relationship graph data"""
+    marker = request.args.get('marker', '', type=str)
+    file_path = request.args.get('file', '', type=str)
+    
+    breadcrumbs_file = Path(__file__).parent.parent / 'breadcrumbs.json'
+    
+    if not breadcrumbs_file.exists():
+        return jsonify({'nodes': [], 'edges': []})
+    
+    try:
+        with open(breadcrumbs_file) as f:
+            data = json.load(f)
+        
+        breadcrumbs = data.get('breadcrumbs', [])
+        
+        # Filter breadcrumbs for graph
+        filtered = breadcrumbs
+        if marker:
+            filtered = [b for b in breadcrumbs if b.get('ai_breadcrumb') == marker]
+        elif file_path:
+            filtered = [b for b in breadcrumbs if file_path in b.get('file_path', '')]
+        
+        # Build nodes
+        nodes = []
+        for i, b in enumerate(filtered):
+            node = {
+                'id': i,
+                'label': f"{b.get('phase', 'Unknown')}:{b.get('line_number', 0)}",
+                'title': f"{b.get('file_path', '')}:{b.get('line_number', 0)}",
+                'status': b.get('status', 'UNKNOWN'),
+                'phase': b.get('phase', 'UNKNOWN'),
+                'file': b.get('file_path', ''),
+                'marker': b.get('ai_breadcrumb', '')
+            }
+            
+            # Color by status
+            status = b.get('status', '').upper()
+            if status == 'IMPLEMENTED':
+                node['color'] = '#4ade80'
+            elif status == 'PARTIAL':
+                node['color'] = '#fbbf24'
+            elif status == 'NOT_STARTED':
+                node['color'] = '#ef4444'
+            else:
+                node['color'] = '#9ca3af'
+            
+            nodes.append(node)
+        
+        # Build edges (based on dependencies and blocks)
+        edges = []
+        for i, b in enumerate(filtered):
+            # Dependencies
+            deps = b.get('ai_dependencies', '')
+            if deps:
+                for dep_marker in deps.split(','):
+                    dep_marker = dep_marker.strip()
+                    for j, other in enumerate(filtered):
+                        if i != j and other.get('ai_breadcrumb') == dep_marker:
+                            edges.append({
+                                'from': i,
+                                'to': j,
+                                'label': 'depends on',
+                                'arrows': 'to'
+                            })
+            
+            # Blocks
+            blocks = b.get('ai_blocks', '')
+            if blocks:
+                for block_marker in blocks.split(','):
+                    block_marker = block_marker.strip()
+                    for j, other in enumerate(filtered):
+                        if i != j and other.get('ai_breadcrumb') == block_marker:
+                            edges.append({
+                                'from': i,
+                                'to': j,
+                                'label': 'blocks',
+                                'arrows': 'to',
+                                'color': {'color': '#ef4444'}
+                            })
+        
+        return jsonify({
+            'nodes': nodes,
+            'edges': edges
+        })
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to generate graph: {str(e)}'
+        }), 500
+
+
+@app.route('/api/breadcrumbs/filters')
+def api_breadcrumbs_filters():
+    """Get available filter options"""
+    breadcrumbs_file = Path(__file__).parent.parent / 'breadcrumbs.json'
+    
+    if not breadcrumbs_file.exists():
+        return jsonify({
+            'phases': [],
+            'statuses': [],
+            'markers': [],
+            'files': []
+        })
+    
+    try:
+        with open(breadcrumbs_file) as f:
+            data = json.load(f)
+        
+        breadcrumbs = data.get('breadcrumbs', [])
+        
+        # Extract unique values
+        phases = set()
+        statuses = set()
+        markers = set()
+        files = set()
+        
+        for b in breadcrumbs:
+            if b.get('phase'):
+                phases.add(b['phase'])
+            if b.get('status'):
+                statuses.add(b['status'])
+            if b.get('ai_breadcrumb'):
+                markers.add(b['ai_breadcrumb'])
+            if b.get('file_path'):
+                files.add(b['file_path'])
+        
+        return jsonify({
+            'phases': sorted(list(phases)),
+            'statuses': sorted(list(statuses)),
+            'markers': sorted(list(markers)),
+            'files': sorted(list(files))
+        })
+    except Exception as e:
+        return jsonify({
+            'error': f'Failed to get filters: {str(e)}'
+        }), 500
 
 
 @app.route('/api/compilation')

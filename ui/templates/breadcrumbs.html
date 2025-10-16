@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breadcrumb Explorer - AROS-Cognito</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar h2 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+        
+        .sidebar .filter-group {
+            margin-bottom: 20px;
+        }
+        
+        .sidebar label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        
+        .sidebar input[type="text"],
+        .sidebar input[type="number"],
+        .sidebar select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 0.9em;
+        }
+        
+        .sidebar input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .sidebar button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+        
+        .sidebar button:hover {
+            opacity: 0.9;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        header h1 {
+            font-size: 2em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .back-link {
+            color: #ffd700;
+            text-decoration: none;
+            font-size: 1.1em;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        /* Summary Cards */
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .summary-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .summary-card:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .summary-card h3 {
+            font-size: 0.9em;
+            margin-bottom: 8px;
+            opacity: 0.9;
+        }
+        
+        .summary-card .count {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        /* Breadcrumb Table */
+        .table-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        tbody tr {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+        
+        .status-IMPLEMENTED {
+            background: #4ade80;
+            color: #000;
+        }
+        
+        .status-PARTIAL {
+            background: #fbbf24;
+            color: #000;
+        }
+        
+        .status-NOT_STARTED {
+            background: #ef4444;
+            color: #fff;
+        }
+        
+        .phase-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            background: #3b82f6;
+        }
+        
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .pagination button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .pagination button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .pagination .page-info {
+            font-size: 0.9em;
+        }
+        
+        /* Detail Drawer */
+        .drawer {
+            position: fixed;
+            top: 0;
+            right: -600px;
+            width: 600px;
+            height: 100vh;
+            background: rgba(30, 60, 114, 0.98);
+            backdrop-filter: blur(20px);
+            box-shadow: -5px 0 30px rgba(0, 0, 0, 0.5);
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .drawer.open {
+            right: 0;
+        }
+        
+        .drawer-header {
+            position: sticky;
+            top: 0;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .drawer-header h2 {
+            font-size: 1.3em;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 5px 10px;
+        }
+        
+        .close-btn:hover {
+            color: #ffd700;
+        }
+        
+        .drawer-content {
+            padding: 20px;
+        }
+        
+        .drawer-section {
+            margin-bottom: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .drawer-section h3 {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #ffd700;
+        }
+        
+        .drawer-section p,
+        .drawer-section pre {
+            margin: 5px 0;
+            line-height: 1.6;
+        }
+        
+        .drawer-section pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 0.9em;
+        }
+        
+        .drawer-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .drawer-actions button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        
+        .related-list {
+            list-style: none;
+        }
+        
+        .related-list li {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .related-list li:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.1em;
+            opacity: 0.7;
+        }
+        
+        /* Graph Container */
+        .graph-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .graph-container h2 {
+            margin-bottom: 15px;
+        }
+        
+        #graph-canvas {
+            width: 100%;
+            height: 500px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>🔍 Search & Filters</h2>
+        
+        <div class="filter-group">
+            <label for="searchQuery">Search</label>
+            <input type="text" id="searchQuery" placeholder="Search notes, reasons, refs...">
+        </div>
+        
+        <div class="filter-group">
+            <label for="phaseFilter">Phase</label>
+            <select id="phaseFilter">
+                <option value="">All Phases</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="statusFilter">Status</label>
+            <select id="statusFilter">
+                <option value="">All Statuses</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="markerFilter">Marker</label>
+            <select id="markerFilter">
+                <option value="">All Markers</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="fileFilter">File Path</label>
+            <input type="text" id="fileFilter" placeholder="Filter by file path...">
+        </div>
+        
+        <div class="filter-group">
+            <label for="minComplexity">Complexity (Min - Max)</label>
+            <div style="display: flex; gap: 5px;">
+                <input type="number" id="minComplexity" placeholder="Min" min="1" max="10">
+                <input type="number" id="maxComplexity" placeholder="Max" min="1" max="10">
+            </div>
+        </div>
+        
+        <button onclick="applyFilters()">Apply Filters</button>
+        <button onclick="clearFilters()" style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);">Clear Filters</button>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-content">
+        <header>
+            <h1>🧭 Breadcrumb Explorer</h1>
+            <a href="/" class="back-link">← Back to Dashboard</a>
+        </header>
+        
+        <!-- Summary Cards -->
+        <div class="summary-cards">
+            <div class="summary-card" onclick="filterByStatus('')">
+                <h3>Total Breadcrumbs</h3>
+                <div class="count" id="totalCount">0</div>
+            </div>
+            <div class="summary-card" onclick="filterByStatus('IMPLEMENTED')">
+                <h3>Implemented</h3>
+                <div class="count" id="implementedCount" style="color: #4ade80;">0</div>
+            </div>
+            <div class="summary-card" onclick="filterByStatus('PARTIAL')">
+                <h3>Partial</h3>
+                <div class="count" id="partialCount" style="color: #fbbf24;">0</div>
+            </div>
+            <div class="summary-card" onclick="filterByStatus('NOT_STARTED')">
+                <h3>Not Started</h3>
+                <div class="count" id="notStartedCount" style="color: #ef4444;">0</div>
+            </div>
+        </div>
+        
+        <!-- Breadcrumb Table -->
+        <div class="table-container">
+            <h2>📊 Breadcrumbs</h2>
+            <div id="tableContent">
+                <div class="loading">Loading breadcrumbs...</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detail Drawer -->
+    <div class="drawer" id="detailDrawer">
+        <div class="drawer-header">
+            <h2>Breadcrumb Details</h2>
+            <button class="close-btn" onclick="closeDrawer()">×</button>
+        </div>
+        <div class="drawer-content" id="drawerContent">
+            <div class="loading">Loading...</div>
+        </div>
+    </div>
+    
+    <script>
+        let currentPage = 1;
+        let perPage = 50;
+        let totalPages = 0;
+        let currentFilters = {};
+        
+        // Fetch and populate filter options
+        async function loadFilterOptions() {
+            try {
+                const response = await fetch('/api/breadcrumbs/filters');
+                const data = await response.json();
+                
+                // Populate phase filter
+                const phaseFilter = document.getElementById('phaseFilter');
+                data.phases.forEach(phase => {
+                    const option = document.createElement('option');
+                    option.value = phase;
+                    option.textContent = phase;
+                    phaseFilter.appendChild(option);
+                });
+                
+                // Populate status filter
+                const statusFilter = document.getElementById('statusFilter');
+                data.statuses.forEach(status => {
+                    const option = document.createElement('option');
+                    option.value = status;
+                    option.textContent = status;
+                    statusFilter.appendChild(option);
+                });
+                
+                // Populate marker filter
+                const markerFilter = document.getElementById('markerFilter');
+                data.markers.forEach(marker => {
+                    const option = document.createElement('option');
+                    option.value = marker;
+                    option.textContent = marker;
+                    markerFilter.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error loading filter options:', error);
+            }
+        }
+        
+        // Load summary statistics
+        async function loadSummary() {
+            try {
+                const response = await fetch('/api/breadcrumbs');
+                const data = await response.json();
+                
+                if (data.statistics) {
+                    document.getElementById('totalCount').textContent = data.statistics.total_breadcrumbs || 0;
+                    
+                    // Calculate status counts
+                    const statuses = data.statistics.statuses || {};
+                    document.getElementById('implementedCount').textContent = statuses.IMPLEMENTED || 0;
+                    document.getElementById('partialCount').textContent = statuses.PARTIAL || 0;
+                    document.getElementById('notStartedCount').textContent = statuses.NOT_STARTED || 0;
+                }
+            } catch (error) {
+                console.error('Error loading summary:', error);
+            }
+        }
+        
+        // Load breadcrumbs with current filters
+        async function loadBreadcrumbs() {
+            const tableContent = document.getElementById('tableContent');
+            tableContent.innerHTML = '<div class="loading">Loading breadcrumbs...</div>';
+            
+            try {
+                // Build query string
+                const params = new URLSearchParams({
+                    page: currentPage,
+                    per_page: perPage,
+                    ...currentFilters
+                });
+                
+                const response = await fetch(`/api/breadcrumbs/search?${params}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    tableContent.innerHTML = `<div class="loading">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                totalPages = data.total_pages;
+                
+                if (data.breadcrumbs.length === 0) {
+                    tableContent.innerHTML = '<div class="loading">No breadcrumbs found</div>';
+                    return;
+                }
+                
+                // Create table
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>File</th>
+                                <th>Line</th>
+                                <th>Phase</th>
+                                <th>Status</th>
+                                <th>Marker</th>
+                                <th>Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.breadcrumbs.forEach((b, index) => {
+                    const globalIndex = (currentPage - 1) * perPage + index;
+                    const fileName = b.file_path ? b.file_path.split('/').pop() : 'unknown';
+                    const status = b.status || 'UNKNOWN';
+                    const phase = b.phase || 'Unknown';
+                    const marker = b.ai_breadcrumb || '-';
+                    const priority = b.ai_priority || '-';
+                    
+                    html += `
+                        <tr onclick="openDrawer(${globalIndex})">
+                            <td title="${b.file_path || ''}">${fileName}</td>
+                            <td>${b.line_number || '-'}</td>
+                            <td><span class="phase-badge">${phase}</span></td>
+                            <td><span class="status-badge status-${status}">${status}</span></td>
+                            <td>${marker}</td>
+                            <td>${priority}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                        </tbody>
+                    </table>
+                    <div class="pagination">
+                        <button onclick="prevPage()" ${currentPage === 1 ? 'disabled' : ''}>← Previous</button>
+                        <span class="page-info">Page ${currentPage} of ${totalPages} (${data.total} total)</span>
+                        <button onclick="nextPage()" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button>
+                    </div>
+                `;
+                
+                tableContent.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading breadcrumbs:', error);
+                tableContent.innerHTML = `<div class="loading">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            currentFilters = {};
+            
+            const searchQuery = document.getElementById('searchQuery').value;
+            const phase = document.getElementById('phaseFilter').value;
+            const status = document.getElementById('statusFilter').value;
+            const marker = document.getElementById('markerFilter').value;
+            const file = document.getElementById('fileFilter').value;
+            const minComplexity = document.getElementById('minComplexity').value;
+            const maxComplexity = document.getElementById('maxComplexity').value;
+            
+            if (searchQuery) currentFilters.q = searchQuery;
+            if (phase) currentFilters.phase = phase;
+            if (status) currentFilters.status = status;
+            if (marker) currentFilters.marker = marker;
+            if (file) currentFilters.file = file;
+            if (minComplexity) currentFilters.min_complexity = minComplexity;
+            if (maxComplexity) currentFilters.max_complexity = maxComplexity;
+            
+            currentPage = 1;
+            loadBreadcrumbs();
+        }
+        
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('searchQuery').value = '';
+            document.getElementById('phaseFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('markerFilter').value = '';
+            document.getElementById('fileFilter').value = '';
+            document.getElementById('minComplexity').value = '';
+            document.getElementById('maxComplexity').value = '';
+            
+            currentFilters = {};
+            currentPage = 1;
+            loadBreadcrumbs();
+        }
+        
+        // Filter by status (from summary cards)
+        function filterByStatus(status) {
+            document.getElementById('statusFilter').value = status;
+            applyFilters();
+        }
+        
+        // Pagination
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadBreadcrumbs();
+            }
+        }
+        
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadBreadcrumbs();
+            }
+        }
+        
+        // Open detail drawer
+        async function openDrawer(breadcrumbId) {
+            const drawer = document.getElementById('detailDrawer');
+            const content = document.getElementById('drawerContent');
+            
+            drawer.classList.add('open');
+            content.innerHTML = '<div class="loading">Loading details...</div>';
+            
+            try {
+                const response = await fetch(`/api/breadcrumbs/${breadcrumbId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    content.innerHTML = `<div class="loading">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                const b = data.breadcrumb;
+                
+                let html = `
+                    <div class="drawer-actions">
+                        <button onclick="alert('View File: ${b.file_path || 'N/A'}')">View File</button>
+                        <button onclick="showGraph('${b.ai_breadcrumb || ''}')">Open Graph</button>
+                    </div>
+                    
+                    <div class="drawer-section">
+                        <h3>Basic Information</h3>
+                        <p><strong>File:</strong> ${b.file_path || 'N/A'}</p>
+                        <p><strong>Line:</strong> ${b.line_number || 'N/A'}</p>
+                        <p><strong>Phase:</strong> ${b.phase || 'N/A'}</p>
+                        <p><strong>Status:</strong> <span class="status-badge status-${b.status || 'UNKNOWN'}">${b.status || 'UNKNOWN'}</span></p>
+                        <p><strong>Marker:</strong> ${b.ai_breadcrumb || 'N/A'}</p>
+                        <p><strong>Strategy:</strong> ${b.strategy || 'N/A'}</p>
+                    </div>
+                `;
+                
+                if (b.ai_note) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>AI Note</h3>
+                            <p>${b.ai_note}</p>
+                        </div>
+                    `;
+                }
+                
+                if (b.fix_reason) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>Fix Reason</h3>
+                            <p>${b.fix_reason}</p>
+                        </div>
+                    `;
+                }
+                
+                if (b.details) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>Details</h3>
+                            <p>${b.details}</p>
+                        </div>
+                    `;
+                }
+                
+                if (b.ai_context) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>AI Context</h3>
+                            <pre>${JSON.stringify(b.ai_context, null, 2)}</pre>
+                        </div>
+                    `;
+                }
+                
+                // Distributed AI fields
+                const distFields = [];
+                if (b.ai_priority) distFields.push(`Priority: ${b.ai_priority}`);
+                if (b.ai_complexity) distFields.push(`Complexity: ${b.ai_complexity}`);
+                if (b.ai_estimated_time) distFields.push(`Estimated Time: ${b.ai_estimated_time}`);
+                if (b.ai_assigned_to) distFields.push(`Assigned To: ${b.ai_assigned_to}`);
+                
+                if (distFields.length > 0) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>Task Metadata</h3>
+                            ${distFields.map(f => `<p>${f}</p>`).join('')}
+                        </div>
+                    `;
+                }
+                
+                if (b.ai_dependencies || b.ai_blocks) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>Dependencies & Blocks</h3>
+                    `;
+                    if (b.ai_dependencies) {
+                        html += `<p><strong>Dependencies:</strong> ${b.ai_dependencies}</p>`;
+                    }
+                    if (b.ai_blocks) {
+                        html += `<p><strong>Blocks:</strong> ${b.ai_blocks}</p>`;
+                    }
+                    html += `</div>`;
+                }
+                
+                // Related breadcrumbs
+                if (data.related && data.related.length > 0) {
+                    html += `
+                        <div class="drawer-section">
+                            <h3>Related Breadcrumbs (${data.related.length})</h3>
+                            <ul class="related-list">
+                    `;
+                    data.related.forEach(rel => {
+                        html += `
+                            <li onclick="openDrawer(${rel.id})">
+                                <strong>${rel.file.split('/').pop()}</strong>:${rel.line}<br>
+                                <small>${rel.phase} - ${rel.status}</small>
+                            </li>
+                        `;
+                    });
+                    html += `</ul></div>`;
+                }
+                
+                content.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading breadcrumb details:', error);
+                content.innerHTML = `<div class="loading">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Close detail drawer
+        function closeDrawer() {
+            document.getElementById('detailDrawer').classList.remove('open');
+        }
+        
+        // Show graph (placeholder for now)
+        function showGraph(marker) {
+            alert(`Graph visualization for marker "${marker}" would open here.\n\nThis feature requires vis-network or cytoscape.js library integration.`);
+        }
+        
+        // Initialize
+        loadFilterOptions();
+        loadSummary();
+        loadBreadcrumbs();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadSummary();
+            loadBreadcrumbs();
+        }, 30000);
+    </script>
+</body>
+</html>
