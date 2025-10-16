@@ -437,6 +437,56 @@ install_pytorch() {
     print_success "PyTorch installation complete"
 }
 
+# Function to setup AI models
+setup_ai_models() {
+    print_info "Setting up AI models..."
+    echo ""
+    
+    print_info "Checking for AI model dependencies..."
+    
+    # Check if transformers is installed
+    if python3 -c "import transformers" 2>/dev/null; then
+        print_success "Transformers library installed"
+    else
+        print_warning "Transformers library not found"
+        print_info "Installing transformers..."
+        python3 -m pip install transformers>=4.36.0 -q
+    fi
+    
+    # Check if models are available
+    MODELS_DIR="$PROJECT_ROOT/models"
+    mkdir -p "$MODELS_DIR"
+    
+    print_info "Model configuration:"
+    echo "  - Models directory: $MODELS_DIR"
+    echo "  - Config file: $PROJECT_ROOT/config/models.json"
+    echo ""
+    
+    print_warning "AI Model Setup Instructions:"
+    echo ""
+    echo "The system uses two AI models:"
+    echo "  1. CodeGen (for code generation)"
+    echo "  2. LLaMA-2 (for reasoning and exploration)"
+    echo ""
+    echo "These models will be downloaded automatically on first use."
+    echo "Alternatively, you can pre-download them:"
+    echo ""
+    echo "  # For CodeGen (smaller, ~350MB):"
+    echo "  python3 -c 'from transformers import AutoTokenizer, AutoModelForCausalLM; AutoTokenizer.from_pretrained(\"Salesforce/codegen-350M-mono\"); AutoModelForCausalLM.from_pretrained(\"Salesforce/codegen-350M-mono\")'"
+    echo ""
+    echo "  # For LLaMA-2 (larger, ~13GB - requires HuggingFace token):"
+    echo "  # Visit: https://huggingface.co/meta-llama/Llama-2-7b-chat-hf"
+    echo "  # Request access, then use your token:"
+    echo "  # export HF_TOKEN='your_token_here'"
+    echo "  # python3 -c 'from transformers import AutoTokenizer, AutoModelForCausalLM; AutoTokenizer.from_pretrained(\"meta-llama/Llama-2-7b-chat-hf\", use_auth_token=True); AutoModelForCausalLM.from_pretrained(\"meta-llama/Llama-2-7b-chat-hf\", use_auth_token=True)'"
+    echo ""
+    print_info "Note: System will use mock AI models if real models are unavailable"
+    print_info "      This allows development and testing without full model downloads"
+    echo ""
+    
+    print_success "AI model setup complete"
+}
+
 # Function to initialize database schema
 initialize_database() {
     print_info "Initializing database schema..."
@@ -605,6 +655,11 @@ display_summary() {
     echo "5. Run the AI Agent:"
     echo "   ${GREEN}./scripts/run_ai_agent.sh ITERATE radeonsi 10${NC}"
     echo ""
+    echo "Important Notes:"
+    echo "  - AI models will auto-download on first use (requires internet)"
+    echo "  - System uses mock AI if models unavailable (for testing)"
+    echo "  - For full AI features, ensure models are downloaded (see setup instructions)"
+    echo ""
     echo "Documentation:"
     echo "   - Setup Guide:   ${BLUE}cat SETUP.md${NC}"
     echo "   - System Guide:  ${BLUE}cat SYSTEM_OVERVIEW.md${NC}"
@@ -621,6 +676,7 @@ main() {
     clone_repositories
     setup_python_env
     install_pytorch
+    setup_ai_models
     initialize_database
     configure_ui_network
     verify_installation
