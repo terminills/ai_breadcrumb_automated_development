@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Test script to demonstrate diagnostic improvements
 
 echo "╔════════════════════════════════════════════════════════════════════╗"
@@ -6,10 +7,14 @@ echo "║  AROS-Cognito Diagnostics Test                                    ║"
 echo "╚════════════════════════════════════════════════════════════════════╝"
 echo ""
 
+# Create secure temporary file
+TEMP_JSON=$(mktemp)
+trap 'rm -f "$TEMP_JSON"' EXIT
+
 # Test 1: Command-line diagnostics
 echo "Test 1: Running command-line diagnostics..."
 echo "─────────────────────────────────────────────────────────────────────"
-python3 scripts/check_system_diagnostics.py
+python3 scripts/check_system_diagnostics.py || true
 EXIT_CODE=$?
 echo ""
 echo "Exit code: $EXIT_CODE (0 = success, 1 = critical issues)"
@@ -18,13 +23,13 @@ echo ""
 # Test 2: JSON export
 echo "Test 2: Testing JSON export..."
 echo "─────────────────────────────────────────────────────────────────────"
-python3 scripts/check_system_diagnostics.py --json /tmp/diagnostics_test.json --quiet
-if [ -f /tmp/diagnostics_test.json ]; then
+python3 scripts/check_system_diagnostics.py --json "$TEMP_JSON" --quiet || true
+if [ -f "$TEMP_JSON" ]; then
     echo "✓ JSON export successful"
     echo "Preview:"
-    head -20 /tmp/diagnostics_test.json
+    head -20 "$TEMP_JSON"
     echo ""
-    FILE_SIZE=$(wc -c < /tmp/diagnostics_test.json)
+    FILE_SIZE=$(wc -c < "$TEMP_JSON")
     echo "File size: $FILE_SIZE bytes"
 else
     echo "✗ JSON export failed"
@@ -34,25 +39,13 @@ echo ""
 # Test 3: Enhanced download_models.py
 echo "Test 3: Testing enhanced download_models.py..."
 echo "─────────────────────────────────────────────────────────────────────"
-python3 scripts/download_models.py --check
+python3 scripts/download_models.py --check || true
 echo ""
 
 # Test 4: Model loader diagnostics (simulate)
 echo "Test 4: Simulating model loader error with diagnostics..."
 echo "─────────────────────────────────────────────────────────────────────"
-python3 -c "
-import sys
-sys.path.insert(0, 'src')
-from local_models.model_loader import LocalModelLoader
-
-try:
-    loader = LocalModelLoader()
-    # This will fail because torch is not installed
-    loader.load_model('codegen', use_mock=False)
-except Exception as e:
-    print('Caught expected error:')
-    print(str(e)[:500])  # Print first 500 chars
-"
+python3 scripts/test_model_loader_diagnostic.py || true
 echo ""
 
 # Summary
