@@ -293,56 +293,72 @@
         </div>
     </div>
     
-    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js" integrity="sha512-HTENHrkQ/P0NGDFd4kgH+FEuEqjPEPRPfn2wc9Dz8t9KtOmqR5/p/A21X7wL/tyAPKgIqBIi3qwdE9DQBqDjRQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-        // WebSocket connection
-        const socket = io();
+        // Try to load Socket.IO with graceful fallback
+        let socket = null;
+        let socketAvailable = false;
+        
+        // Check if Socket.IO is available
+        if (typeof io !== 'undefined') {
+            socket = io();
+            socketAvailable = true;
+        } else {
+            console.log('Socket.IO not available, using polling mode');
+        }
         
         // Connection status
         const statusElement = document.getElementById('connectionStatus');
         
-        socket.on('connect', () => {
-            console.log('Connected to server');
-            statusElement.textContent = '🟢 Connected';
-            statusElement.className = 'connection-status connected';
-            addLogEntry('Connected to server', 'success');
+        if (socketAvailable) {
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                statusElement.textContent = '🟢 Connected';
+                statusElement.className = 'connection-status connected';
+                addLogEntry('Connected to server', 'success');
+                
+                // Subscribe to updates
+                socket.emit('subscribe_iteration');
+            });
             
-            // Subscribe to updates
-            socket.emit('subscribe_iteration');
-        });
-        
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-            statusElement.textContent = '⚫ Disconnected';
-            statusElement.className = 'connection-status disconnected';
-            addLogEntry('Disconnected from server', 'error');
-        });
-        
-        socket.on('connected', (data) => {
-            console.log('Server confirmed connection:', data);
-            addLogEntry(data.message, 'success');
-        });
-        
-        socket.on('subscribed', (data) => {
-            console.log('Subscribed to channel:', data.channel);
-            addLogEntry(`Subscribed to ${data.channel} updates`, 'success');
-        });
-        
-        socket.on('iteration_update', (data) => {
-            console.log('Iteration update:', data);
-            addLogEntry(`Iteration ${data.current_iteration}/${data.total_iterations}: ${data.current_phase}`, 'success');
-            updateActiveSessions();
-        });
-        
-        socket.on('copilot_update', (data) => {
-            console.log('Copilot update:', data);
-            if (data.phase) {
-                addLogEntry(`Session ${data.session_id}: ${data.phase} - ${data.status}`, 'success');
-            } else if (data.status === 'completed') {
-                addLogEntry(`Session ${data.session_id}: Completed!`, 'success');
-            }
-            updateActiveSessions();
-        });
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                statusElement.textContent = '⚫ Disconnected';
+                statusElement.className = 'connection-status disconnected';
+                addLogEntry('Disconnected from server', 'error');
+            });
+            
+            socket.on('connected', (data) => {
+                console.log('Server confirmed connection:', data);
+                addLogEntry(data.message, 'success');
+            });
+            
+            socket.on('subscribed', (data) => {
+                console.log('Subscribed to channel:', data.channel);
+                addLogEntry(`Subscribed to ${data.channel} updates`, 'success');
+            });
+            
+            socket.on('iteration_update', (data) => {
+                console.log('Iteration update:', data);
+                addLogEntry(`Iteration ${data.current_iteration}/${data.total_iterations}: ${data.current_phase}`, 'success');
+                updateActiveSessions();
+            });
+            
+            socket.on('copilot_update', (data) => {
+                console.log('Copilot update:', data);
+                if (data.phase) {
+                    addLogEntry(`Session ${data.session_id}: ${data.phase} - ${data.status}`, 'success');
+                } else if (data.status === 'completed') {
+                    addLogEntry(`Session ${data.session_id}: Completed!`, 'success');
+                }
+                updateActiveSessions();
+            });
+        } else {
+            // Polling mode
+            statusElement.textContent = '🟡 Polling Mode (WebSocket unavailable)';
+            statusElement.className = 'connection-status connected';
+            addLogEntry('Using polling mode (WebSocket unavailable)', 'success');
+        }
         
         // Add log entry
         function addLogEntry(message, type = '') {
