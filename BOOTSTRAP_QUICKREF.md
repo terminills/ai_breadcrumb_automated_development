@@ -3,49 +3,64 @@
 ## One-Command Setup
 
 ```bash
+# Run as regular user (not root)
+# You'll be prompted for sudo password when needed
 ./scripts/bootstrap_ubuntu.sh
 ```
 
 ## What Gets Set Up
 
 ### 1. System Dependencies ✓
-- Build tools (gcc, make, etc.)
+- Build tools (gcc, make, etc.) - installed via sudo
 - Python 3 and pip
+- Python venv support
 - Git
 - Required libraries
 
-### 2. ROCm Validation ✓
+### 2. Python Virtual Environment ✓
+- Creates venv in `venv/` directory
+- Isolates dependencies from system Python
+- Automatically activated during setup
+
+### 3. ROCm Validation ✓
 - Detects ROCm 5.7.1
 - Validates AMD GPU (MI25, MI60, etc.)
 - Falls back to CPU mode if not available
+- ROCm installed via sudo if needed
 
-### 3. GitHub Integration ✓
+### 4. GitHub Integration ✓
 - Prompts for GitHub token (first run only)
 - Saves token securely to `~/.aros_github_token`
 - Clones `terminills/AROS-OLD` (private)
 - Configures `aros-development-team/AROS` as upstream
 
-### 4. Database Schema ✓
+### 5. Database Schema ✓
 - Initializes JSON databases
 - Creates schema version tracking
 - Sets up automatic backups
 - Validates on every run
 
-### 5. Python Environment ✓
-- Installs PyTorch with ROCm support
-- Installs all dependencies
+### 6. Python Dependencies ✓
+- Installs PyTorch 2.3.1+ (or 2.0.1 for ROCm 5.7.1)
+- Installs all dependencies in venv
 - Validates installation
 
-### 6. Network UI ✓
+### 7. Network UI ✓
 - Configures UI to bind on `0.0.0.0:5000`
 - Accessible from local network
-- Creates convenience startup script
+- Works with venv setup
 
 ## After Bootstrap
 
 ### Start the UI
 ```bash
-./start_ui.sh
+./start_ui.sh  # Automatically activates venv
+```
+
+### Manual Activation
+```bash
+source venv/bin/activate
+cd ui && python app.py
 ```
 
 Access at:

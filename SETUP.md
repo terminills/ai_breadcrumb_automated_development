@@ -17,24 +17,27 @@ This guide will help you set up and run the AI Breadcrumb Automated Development 
 The fastest way to get started is with the automated bootstrap script:
 
 ```bash
+# Run as a regular user (not root)
+# You'll be prompted for sudo password when needed
 ./scripts/bootstrap_ubuntu.sh
 ```
 
 ### What the Bootstrap Script Does
 
 1. **System Check**: Validates Ubuntu 22.04.3 installation
-2. **Dependencies**: Installs all required system packages (build tools, Python, etc.)
-3. **ROCm Management**: 
+2. **Dependencies**: Installs all required system packages via sudo (build tools, Python, etc.)
+3. **Virtual Environment**: Creates and configures a Python venv in `venv/` directory
+4. **ROCm Management**: 
    - Checks for existing ROCm installation
-   - On Ubuntu 22.04.3: Offers to install ROCm 5.7.1 if not present
+   - On Ubuntu 22.04.3: Offers to install ROCm 5.7.1 if not present (via sudo)
    - Handles DKMS compatibility issues automatically
    - Validates AMD GPU availability
-4. **GitHub Token**: Prompts for and securely stores your GitHub token
-5. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
-6. **Database Schema**: Initializes and migrates database schema
-7. **PyTorch**: Installs PyTorch with ROCm support (or CPU-only)
-8. **Network UI**: Configures UI for local network access
-9. **Verification**: Tests the complete installation
+5. **GitHub Token**: Prompts for and securely stores your GitHub token
+6. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
+7. **Database Schema**: Initializes and migrated database schema
+8. **PyTorch**: Installs PyTorch 2.3.1+ in venv (or 2.0.1 for ROCm 5.7.1 compatibility)
+9. **Network UI**: Configures UI for local network access
+10. **Verification**: Tests the complete installation
 
 ### First Run
 
@@ -71,11 +74,12 @@ On subsequent runs, the bootstrap script will:
 Once bootstrap completes, you can:
 
 ```bash
-# Start the UI (accessible on your local network)
+# Start the UI (automatically activates venv and starts server)
 ./start_ui.sh
 
-# Or manually
-cd ui && python3 app.py
+# Or manually with venv
+source venv/bin/activate
+cd ui && python app.py
 ```
 
 Access the UI:

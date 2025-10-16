@@ -239,24 +239,30 @@ For a complete, one-command setup on Ubuntu 22.04.3 with ROCm 5.7.1:
 
 ```bash
 # Complete bootstrap - handles everything automatically
+# Run as a regular user (not root) - it will prompt for sudo password when needed
 ./scripts/bootstrap_ubuntu.sh
 ```
 
 This bootstrap script will:
-- Install all system dependencies
+- Install all system dependencies (via sudo)
+- Create and configure a Python virtual environment (venv)
 - Validate ROCm 5.7.1 installation
 - Prompt for GitHub token (first run only)
 - Clone both AROS-OLD and configure upstream
 - Initialize database schema
-- Install PyTorch with ROCm support
+- Install PyTorch 2.3.1+ (or 2.0.1 for ROCm 5.7.1 compatibility)
 - Configure UI for network access
 - Verify the complete installation
 
-**Note:** For ROCm 5.7.1 systems with Python 3.10, the bootstrap script automatically uses optimized AMD repository wheels (torch 2.0.1+rocm5.7, torchvision 0.15.2+rocm5.7) for best performance and compatibility. The `--ignore-installed` flag is used to avoid distutils package conflicts.
+**Note:** 
+- The script now runs as a regular user and creates a virtual environment in `venv/`
+- System packages are installed via sudo (you'll be prompted for your password)
+- For ROCm 5.7.1 systems with Python 3.10, the script uses optimized AMD repository wheels (torch 2.0.1+rocm5.7)
+- For other systems, it installs PyTorch 2.3.1+ from requirements.txt
 
 After bootstrap completes, simply run:
 ```bash
-./start_ui.sh
+./start_ui.sh  # Automatically activates the venv
 ```
 
 ### Manual Setup (Alternative)
