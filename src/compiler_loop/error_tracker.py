@@ -139,3 +139,68 @@ class ErrorTracker:
             'total_occurrences': total_occurrences,
             'patterns': self.get_error_patterns()
         }
+    
+    def find_similar_errors(self, error_message: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Find similar errors that have been seen before
+        Uses simple string similarity
+        
+        Args:
+            error_message: The error to find similar errors for
+            limit: Maximum number of similar errors to return
+            
+        Returns:
+            List of similar error records
+        """
+        if not isinstance(self.error_database, dict):
+            return []
+        
+        similar = []
+        error_lower = error_message.lower()
+        
+        for error_hash, error_data in self.error_database.items():
+            if not isinstance(error_data, dict):
+                continue
+            
+            stored_message = error_data.get('message', '').lower()
+            
+            # Calculate simple similarity (common words)
+            error_words = set(error_lower.split())
+            stored_words = set(stored_message.split())
+            
+            if error_words and stored_words:
+                common_words = error_words & stored_words
+                similarity = len(common_words) / max(len(error_words), len(stored_words))
+                
+                if similarity > 0.3:  # At least 30% similar
+                    similar.append({
+                        'hash': error_hash,
+                        'similarity': similarity,
+                        **error_data
+                    })
+        
+        # Sort by similarity and return top matches
+        similar.sort(key=lambda x: x['similarity'], reverse=True)
+        return similar[:limit]
+    
+    def get_resolution_suggestions(self, error_message: str) -> List[str]:
+        """
+        Get resolution suggestions based on similar resolved errors
+        
+        Args:
+            error_message: The error to get suggestions for
+            
+        Returns:
+            List of resolution suggestions
+        """
+        similar_errors = self.find_similar_errors(error_message, limit=5)
+        suggestions = []
+        
+        for error in similar_errors:
+            if error.get('status') == 'resolved':
+                for resolution in error.get('resolutions', []):
+                    suggestion = resolution.get('resolution', '')
+                    if suggestion and suggestion not in suggestions:
+                        suggestions.append(suggestion)
+        
+        return suggestions
