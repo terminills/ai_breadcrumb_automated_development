@@ -173,11 +173,13 @@ python3 scripts/interactive_chat.py    # Chat with AI assistant
 - 💬 **Chat Mode** - Conversational development assistant
 - 🔄 **Live Iteration** - Real-time code generation with streaming output
 - 📊 **Web Dashboard** - Monitor progress in your browser
+- 🤖 **AI Agent Status** - Real-time visibility into active AI agents
 - 🎨 **Beautiful CLI** - Progress indicators, colors, and formatting
 
 **Documentation:**
 - [Quick Reference](QUICKREF_INTERACTIVE.md) - Commands and common tasks
 - [Interactive Guide](docs/INTERACTIVE_GUIDE.md) - Complete documentation
+- [Agent Status Guide](docs/AGENT_STATUS_GUIDE.md) - Real-time agent monitoring
 - [Example Workflows](docs/INTERACTIVE_WORKFLOWS.md) - Real-world examples
 
 ---
@@ -280,15 +282,20 @@ export GITHUB_TOKEN="your_token_here"
 # 5. Start monitoring UI
 cd ui && python app.py
 # Open http://localhost:5000 in your browser
+# View real-time AI agent status and progress
 
-# 6. Run the AI development loop
+# 6. (Optional) Run demo to see AI agents in action
+python3 scripts/demo_agents.py --once
+# Refresh UI to see active agent status
+
+# 7. Run the AI development loop
 ./scripts/run_ai_agent.sh ITERATE radeonsi 10
 
-# 7. NEW: Run enhanced Copilot-style iteration with local models
+# 8. NEW: Run enhanced Copilot-style iteration with local models
 ./scripts/run_copilot_iteration.sh radeonsi 10
 ```
 
-See [SETUP.md](SETUP.md) for detailed instructions, [AROS_SYNC_GUIDE.md](docs/AROS_SYNC_GUIDE.md) for repository synchronization, [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details, and **[COPILOT_STYLE_ITERATION.md](docs/COPILOT_STYLE_ITERATION.md)** for the new Copilot-style iteration system.
+See [SETUP.md](SETUP.md) for detailed instructions, [AROS_SYNC_GUIDE.md](docs/AROS_SYNC_GUIDE.md) for repository synchronization, [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) for architecture details, [COPILOT_STYLE_ITERATION.md](docs/COPILOT_STYLE_ITERATION.md) for the Copilot-style iteration system, and **[AGENT_STATUS_GUIDE.md](docs/AGENT_STATUS_GUIDE.md)** for real-time agent monitoring.
 
 -----
 
