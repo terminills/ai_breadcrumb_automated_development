@@ -14,6 +14,7 @@ from typing import List, Dict, Optional, Any, Iterable
 TAG_SET = {
     'AI_PHASE', 'AI_STATUS', 'AI_PATTERN', 'AI_STRATEGY', 'AI_DETAILS',
     'AI_NOTE', 'AI_HISTORY', 'AI_CHANGE', 'AI_VERSION', 'AI_TRAIN_HASH',
+    'AI_BREADCRUMB',  # File-level feature marker for bidirectional mapping
     'COMPILER_ERR', 'RUNTIME_ERR', 'FIX_REASON',
     'LINUX_REF', 'AMIGAOS_REF', 'AROS_IMPL',
     'REF_GITHUB_ISSUE', 'REF_PR', 'REF_TROUBLE_TICKET',
@@ -29,7 +30,11 @@ TAG_SET = {
 
 @dataclass
 class Breadcrumb:
-    """Represents a single AI breadcrumb metadata block"""
+    """Represents a single AI breadcrumb metadata block
+    
+    Breadcrumbs act as a bidirectional map for tracking development context
+    and relationships between code components.
+    """
     file_path: str
     line_number: int
     phase: Optional[str] = None
@@ -41,6 +46,7 @@ class Breadcrumb:
     runtime_err: Optional[str] = None
     fix_reason: Optional[str] = None
     ai_note: Optional[str] = None
+    ai_breadcrumb: Optional[str] = None  # File-level feature marker for bidirectional mapping
     ai_history: Optional[str] = None
     ai_change: Optional[str] = None
     ai_version: Optional[str] = None
@@ -251,6 +257,7 @@ class BreadcrumbParser:
             runtime_err=tags.get('RUNTIME_ERR'),
             fix_reason=tags.get('FIX_REASON'),
             ai_note=tags.get('AI_NOTE'),
+            ai_breadcrumb=tags.get('AI_BREADCRUMB'),
             ai_history=tags.get('AI_HISTORY'),
             ai_change=tags.get('AI_CHANGE'),
             ai_version=tags.get('AI_VERSION'),
@@ -307,3 +314,102 @@ class BreadcrumbParser:
             'statuses': statuses,
             'files_with_breadcrumbs': len(set(b.file_path for b in self.breadcrumbs))
         }
+    
+    def get_breadcrumb_map(self) -> Dict[str, List[Breadcrumb]]:
+        """Get bidirectional mapping of breadcrumbs by AI_BREADCRUMB markers
+        
+        Returns a dictionary where keys are AI_BREADCRUMB values and values are
+        lists of breadcrumbs with that marker. This enables bidirectional
+        navigation between related code components.
+        """
+        breadcrumb_map = {}
+        
+        for bc in self.breadcrumbs:
+            if bc.ai_breadcrumb:
+                marker = bc.ai_breadcrumb
+                if marker not in breadcrumb_map:
+                    breadcrumb_map[marker] = []
+                breadcrumb_map[marker].append(bc)
+        
+        return breadcrumb_map
+    
+    def find_related_breadcrumbs(self, breadcrumb: Breadcrumb) -> List[Breadcrumb]:
+        """Find all breadcrumbs related to the given breadcrumb
+        
+        Uses AI_BREADCRUMB markers to find bidirectionally related breadcrumbs.
+        Also checks dependencies, blocks, and reference relationships.
+        
+        Args:
+            breadcrumb: The breadcrumb to find relations for
+            
+        Returns:
+            List of related breadcrumbs
+        """
+        related = []
+        
+        # Find by AI_BREADCRUMB marker
+        if breadcrumb.ai_breadcrumb:
+            breadcrumb_map = self.get_breadcrumb_map()
+            marker_matches = breadcrumb_map.get(breadcrumb.ai_breadcrumb, [])
+            # Don't include the original breadcrumb
+            related.extend([bc for bc in marker_matches if bc != breadcrumb])
+        
+        # Find by dependencies and blocks (bidirectional)
+        if breadcrumb.ai_dependencies:
+            deps = [d.strip() for d in breadcrumb.ai_dependencies.split(',')]
+            for bc in self.breadcrumbs:
+                if bc.phase in deps and bc != breadcrumb:
+                    related.append(bc)
+        
+        if breadcrumb.ai_blocks:
+            blocks = [b.strip() for b in breadcrumb.ai_blocks.split(',')]
+            for bc in self.breadcrumbs:
+                if bc.phase in blocks and bc != breadcrumb:
+                    related.append(bc)
+        
+        # Find reverse dependencies (who depends on this breadcrumb)
+        if breadcrumb.phase:
+            for bc in self.breadcrumbs:
+                if bc.ai_dependencies:
+                    deps = [d.strip() for d in bc.ai_dependencies.split(',')]
+                    if breadcrumb.phase in deps and bc != breadcrumb:
+                        related.append(bc)
+                if bc.ai_blocks:
+                    blocks = [b.strip() for b in bc.ai_blocks.split(',')]
+                    if breadcrumb.phase in blocks and bc != breadcrumb:
+                        related.append(bc)
+        
+        # Find by reference relationships (LINUX_REF, AMIGAOS_REF, etc.)
+        if breadcrumb.linux_ref:
+            for bc in self.breadcrumbs:
+                if bc.linux_ref == breadcrumb.linux_ref and bc != breadcrumb:
+                    related.append(bc)
+        
+        if breadcrumb.amigaos_ref:
+            for bc in self.breadcrumbs:
+                if bc.amigaos_ref == breadcrumb.amigaos_ref and bc != breadcrumb:
+                    related.append(bc)
+        
+        # Find by correction/previous implementation relationships
+        if breadcrumb.previous_implementation_ref:
+            # This breadcrumb references a previous implementation
+            for bc in self.breadcrumbs:
+                if bc.correction_ref == breadcrumb.file_path and bc != breadcrumb:
+                    related.append(bc)
+        
+        if breadcrumb.correction_ref:
+            # This breadcrumb is a correction
+            for bc in self.breadcrumbs:
+                if bc.previous_implementation_ref == breadcrumb.file_path and bc != breadcrumb:
+                    related.append(bc)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_related = []
+        for bc in related:
+            key = (bc.file_path, bc.line_number)
+            if key not in seen:
+                seen.add(key)
+                unique_related.append(bc)
+        
+        return unique_related
