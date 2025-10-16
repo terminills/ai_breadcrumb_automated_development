@@ -135,6 +135,8 @@ class DiagnosticChecker:
     
     def check_required_packages(self) -> Dict:
         """Check all required Python packages"""
+        import importlib
+        
         # Map package names to their import names
         required = {
             'flask': 'flask',
@@ -152,7 +154,7 @@ class DiagnosticChecker:
         results = {}
         for package_name, module_name in required.items():
             try:
-                mod = __import__(module_name)
+                mod = importlib.import_module(module_name)
                 version = getattr(mod, '__version__', 'unknown')
                 results[package_name] = {
                     'installed': True,
