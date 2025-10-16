@@ -864,6 +864,46 @@ Future enhancements may include:
 - Integration with external issue tracking systems
 - AI_CONTEXT extraction for machine learning analysis
 
+## 🔍 System Diagnostics
+
+The system includes comprehensive diagnostics to identify issues with PyTorch, CUDA, ROCm, and AI models.
+
+### Quick Diagnostics
+
+Run a complete system check:
+```bash
+python3 scripts/check_system_diagnostics.py
+```
+
+Check in web UI:
+1. Start UI: `./start_ui.sh`
+2. Open http://localhost:5000
+3. Click "🔍 System Diagnostics"
+
+### What Gets Checked
+
+- ✅ Python version and environment
+- ✅ PyTorch installation (version, CUDA, ROCm, GPUs)
+- ✅ Transformers library
+- ✅ GPU drivers (NVIDIA/AMD)
+- ✅ Disk space availability
+- ✅ AI model installation status
+- ✅ Required Python packages
+
+### Common Issues
+
+**PyTorch not installed:**
+```bash
+pip install torch transformers
+```
+
+**Models not downloaded:**
+```bash
+python3 scripts/download_models.py --codegen
+```
+
+**See full guide:** [DIAGNOSTICS.md](DIAGNOSTICS.md)
+
 ## Support
 
 For questions about the enhanced AI breadcrumb system:
@@ -873,5 +913,11 @@ For questions about the enhanced AI breadcrumb system:
 - Check existing usage throughout the AROS codebase
 - Use `scripts/validate_ai_breadcrumbs.sh` for validation
 - Consult the AROS development team for guidance on complex implementations
+
+For system diagnostics and troubleshooting:
+- Run `python3 scripts/check_system_diagnostics.py` for detailed diagnostics
+- See [DIAGNOSTICS.md](DIAGNOSTICS.md) for complete diagnostic guide
+- Check [AI_MODEL_SETUP.md](AI_MODEL_SETUP.md) for model setup
+- Review [PYTORCH_INSTALLATION.md](PYTORCH_INSTALLATION.md) for PyTorch issues
 
 This enhanced system evolves with the codebase and AI development practices - contribute improvements and suggestions to help enhance its effectiveness and support for longer AI context history.
