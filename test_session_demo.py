@@ -34,8 +34,11 @@ def test_demo_session():
     session_id = result['session_id']
     
     # Monitor session progress
-    print("\n2. Monitoring session progress...")
-    for i in range(10):
+    # Calculate timeout based on iterations (5 phases * 2 sec per phase * iterations + buffer)
+    max_iter = session_data['max_iterations']
+    timeout_iterations = max_iter * 5 + 5  # 5 extra iterations for buffer
+    print(f"\n2. Monitoring session progress (max {timeout_iterations * 2} seconds)...")
+    for i in range(timeout_iterations):
         time.sleep(2)
         
         # Check iteration status

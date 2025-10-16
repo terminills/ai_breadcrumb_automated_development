@@ -45,10 +45,10 @@ pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pyt
 
 ### For AMD ROCm systems (MI25, MI60, etc.):
 
-This project is designed for ROCm 5.7.1. PyTorch 2.3.1 with ROCm support:
+This project is tested with ROCm 5.7.x (specifically 5.7.1). PyTorch 2.3.1 with ROCm support:
 
 ```bash
-# ROCm 5.7
+# ROCm 5.7.x (including 5.7.1)
 pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
 ```
 
