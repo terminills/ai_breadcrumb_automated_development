@@ -465,6 +465,33 @@ def api_iteration_start():
 @app.route('/api/iteration/status')
 def api_iteration_status():
     """Get iteration loop status"""
+    # Check for active iteration state file
+    state_file = logs_path / 'iteration_state.json'
+    
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+            
+            # Check if iteration is active (updated recently)
+            last_update = datetime.fromisoformat(state.get('last_update', '2000-01-01'))
+            is_active = (datetime.now() - last_update).total_seconds() < 300  # Active if updated within 5 minutes
+            
+            return jsonify({
+                'status': 'running' if is_active else 'idle',
+                'current_iteration': state.get('current_iteration', 0),
+                'total_iterations': state.get('total_iterations', 0),
+                'current_phase': state.get('current_phase', 'none'),
+                'phase_progress': state.get('phase_progress', {}),
+                'session_id': state.get('session_id'),
+                'last_update': state.get('last_update'),
+                'retry_count': state.get('retry_count', 0),
+                'task_description': state.get('task_description', '')
+            })
+        except Exception as e:
+            logger.error(f"Error reading iteration state: {e}")
+    
+    # Fallback to log file check
     agent_log_dir = logs_path / 'agent'
     
     if not agent_log_dir.exists():
@@ -718,6 +745,76 @@ def api_git_status():
             'status': 'error',
             'message': f'Failed to get git status: {str(e)}'
         }), 500
+
+
+@app.route('/api/iteration/details')
+def api_iteration_details():
+    """Get detailed iteration progress information"""
+    state_file = logs_path / 'iteration_state.json'
+    
+    if not state_file.exists():
+        return jsonify({
+            'status': 'no_active_iteration',
+            'message': 'No active iteration found'
+        })
+    
+    try:
+        with open(state_file) as f:
+            state = json.load(f)
+        
+        return jsonify({
+            'status': 'ok',
+            'iteration': state.get('current_iteration', 0),
+            'total_iterations': state.get('total_iterations', 0),
+            'session_id': state.get('session_id'),
+            'task': state.get('task_description', ''),
+            'phase': state.get('current_phase', 'none'),
+            'phases': state.get('phase_progress', {}),
+            'exploration': state.get('exploration', {}),
+            'reasoning': state.get('reasoning', {}),
+            'generation': state.get('generation', {}),
+            'review': state.get('review', {}),
+            'compilation': state.get('compilation', {}),
+            'timings': state.get('timings', {}),
+            'retry_count': state.get('retry_count', 0),
+            'last_update': state.get('last_update')
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to read iteration details: {str(e)}'
+        }), 500
+
+
+@app.route('/api/iteration/history')
+def api_iteration_history():
+    """Get iteration history"""
+    history_file = logs_path / 'iteration_history.json'
+    
+    if not history_file.exists():
+        return jsonify({
+            'history': [],
+            'count': 0
+        })
+    
+    try:
+        with open(history_file) as f:
+            history = json.load(f)
+        
+        # Get last 20 iterations
+        recent = history[-20:] if len(history) > 20 else history
+        
+        return jsonify({
+            'history': recent,
+            'count': len(recent),
+            'total': len(history)
+        })
+    except Exception as e:
+        return jsonify({
+            'history': [],
+            'count': 0,
+            'error': str(e)
+        })
 
 
 @app.route('/api/git_history/extract', methods=['POST'])
