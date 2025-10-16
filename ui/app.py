@@ -1414,9 +1414,15 @@ def api_session_create():
         task_description = data.get('task', 'New development task')
         project = data.get('project', 'radeonsi')
         max_iterations = data.get('max_iterations', 10)
+        demo_mode = data.get('demo_mode', False)
         
         # Generate session ID
         session_id = f"session_{int(datetime.now().timestamp())}"
+        
+        # Check if we should run in demo mode (without PyTorch/models)
+        if demo_mode:
+            # Create a demo session that simulates activity without running actual models
+            return _create_demo_session(session_id, task_description, project, max_iterations)
         
         # Prepare the command to run the real iteration script
         script_path = Path(__file__).parent.parent / 'scripts' / 'run_copilot_iteration.sh'
@@ -1427,6 +1433,13 @@ def api_session_create():
             return jsonify({
                 'status': 'error',
                 'message': 'AROS repository not cloned. Please clone it first.'
+            }), 400
+        
+        # Check if the iteration script exists
+        if not script_path.exists():
+            return jsonify({
+                'status': 'error',
+                'message': 'Iteration script not found. Use demo_mode=true for testing without PyTorch.'
             }), 400
         
         # Start the iteration process in background
@@ -1465,6 +1478,102 @@ def api_session_create():
         return jsonify({
             'status': 'error',
             'message': f'Failed to create session: {str(e)}'
+        }), 500
+
+
+def _create_demo_session(session_id, task_description, project, max_iterations):
+    """Create a demo session that simulates activity without requiring models"""
+    # Create iteration state file to simulate an active session
+    state_file = logs_path / 'iteration_state.json'
+    
+    demo_state = {
+        'session_id': session_id,
+        'current_iteration': 1,
+        'total_iterations': max_iterations,
+        'current_phase': 'exploration',
+        'task_description': task_description,
+        'project': project,
+        'started_at': datetime.now().isoformat(),
+        'last_update': datetime.now().isoformat(),
+        'retry_count': 0,
+        'phase_progress': {
+            'exploration': 'running',
+            'reasoning': 'pending',
+            'generation': 'pending',
+            'review': 'pending',
+            'compilation': 'pending'
+        },
+        'demo_mode': True
+    }
+    
+    try:
+        with open(state_file, 'w') as f:
+            json.dump(demo_state, f, indent=2)
+        
+        # Start a demo thread that simulates progress
+        def simulate_progress():
+            import time
+            phases = ['exploration', 'reasoning', 'generation', 'review', 'compilation']
+            for iteration in range(1, max_iterations + 1):
+                for phase in phases:
+                    time.sleep(2)  # Simulate work
+                    try:
+                        with open(state_file) as f:
+                            state = json.load(f)
+                        
+                        state['current_iteration'] = iteration
+                        state['current_phase'] = phase
+                        state['last_update'] = datetime.now().isoformat()
+                        state['phase_progress'][phase] = 'running'
+                        
+                        # Mark previous phases as completed
+                        for prev_phase in phases[:phases.index(phase)]:
+                            state['phase_progress'][prev_phase] = 'completed'
+                        
+                        with open(state_file, 'w') as f:
+                            json.dump(state, f, indent=2)
+                    except Exception as e:
+                        print(f"Demo simulation error: {e}")
+                        break
+                
+                # Mark all phases complete for this iteration
+                try:
+                    with open(state_file) as f:
+                        state = json.load(f)
+                    for phase in phases:
+                        state['phase_progress'][phase] = 'completed'
+                    state['current_phase'] = 'done'
+                    with open(state_file, 'w') as f:
+                        json.dump(state, f, indent=2)
+                except:
+                    break
+            
+            # Session complete
+            try:
+                with open(state_file) as f:
+                    state = json.load(f)
+                state['current_phase'] = 'completed'
+                state['last_update'] = datetime.now().isoformat()
+                with open(state_file, 'w') as f:
+                    json.dump(state, f, indent=2)
+            except:
+                pass
+        
+        # Start simulation in background
+        demo_thread = threading.Thread(target=simulate_progress, daemon=True)
+        demo_thread.start()
+        
+        return jsonify({
+            'status': 'success',
+            'session_id': session_id,
+            'message': 'Demo session started (no models required)',
+            'demo_mode': True
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Failed to create demo session: {str(e)}'
         }), 500
 
 
@@ -1608,58 +1717,15 @@ def api_agents_status():
             except Exception as e:
                 logger.error(f"Error reading session: {e}")
     
-    # If no active agents, add demo/idle agents
-    if not agents:
-        agents = [
-            {
-                'id': 'exploration_agent',
-                'name': 'Code Exploration Agent',
-                'status': 'idle',
-                'current_task': 'Waiting for task',
-                'phase': 'standby',
-                'progress': {
-                    'current': 0,
-                    'total': 0,
-                    'percentage': 0
-                },
-                'last_update': datetime.now().isoformat(),
-                'details': {}
-            },
-            {
-                'id': 'generation_agent',
-                'name': 'Code Generation Agent',
-                'status': 'idle',
-                'current_task': 'Waiting for task',
-                'phase': 'standby',
-                'progress': {
-                    'current': 0,
-                    'total': 0,
-                    'percentage': 0
-                },
-                'last_update': datetime.now().isoformat(),
-                'details': {}
-            },
-            {
-                'id': 'compilation_agent',
-                'name': 'Compilation & Testing Agent',
-                'status': 'idle',
-                'current_task': 'Waiting for task',
-                'phase': 'standby',
-                'progress': {
-                    'current': 0,
-                    'total': 0,
-                    'percentage': 0
-                },
-                'last_update': datetime.now().isoformat(),
-                'details': {}
-            }
-        ]
+    # Don't return mock/idle agents - only return real active agents
+    # This prevents the UI from showing "AI agents active" when they're not actually running
     
     return jsonify({
         'agents': agents,
         'total_active': len([a for a in agents if a['status'] == 'active']),
-        'total_idle': len([a for a in agents if a['status'] == 'idle']),
-        'timestamp': datetime.now().isoformat()
+        'total_idle': 0,  # We don't track idle agents anymore - only active ones
+        'timestamp': datetime.now().isoformat(),
+        'has_real_agents': len(agents) > 0  # Indicates if real agents are running
     })
 
 

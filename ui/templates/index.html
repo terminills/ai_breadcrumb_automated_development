@@ -716,7 +716,16 @@
                         agentsList.appendChild(agentDiv);
                     });
                 } else {
-                    agentsList.innerHTML = '<div class="loading">No agents available</div>';
+                    // No agents running - show helpful message instead of "idle" agents
+                    agentsList.innerHTML = `
+                        <div class="loading" style="text-align: center; padding: 20px;">
+                            <div style="font-size: 2em; margin-bottom: 10px;">💤</div>
+                            <div>No AI agents currently running</div>
+                            <div style="font-size: 0.9em; margin-top: 8px; opacity: 0.7;">
+                                Start a session or iteration loop to see active agents
+                            </div>
+                        </div>
+                    `;
                 }
             }
             

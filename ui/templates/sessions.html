@@ -272,6 +272,16 @@
                     <input type="number" id="maxIterations" name="max_iterations" value="10" min="1" max="100">
                 </div>
                 
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="demoMode" name="demo_mode" style="width: auto; cursor: pointer;">
+                        <span>Demo Mode (no PyTorch/models required - for testing UI)</span>
+                    </label>
+                    <small style="opacity: 0.7; margin-left: 30px; display: block; margin-top: 5px;">
+                        Enable this to test session UI without requiring AI models to be installed
+                    </small>
+                </div>
+                
                 <button type="submit" class="btn btn-success">Create Session</button>
             </form>
         </div>
@@ -320,7 +330,8 @@
             const formData = {
                 task: document.getElementById('taskDescription').value,
                 project: document.getElementById('project').value,
-                max_iterations: parseInt(document.getElementById('maxIterations').value)
+                max_iterations: parseInt(document.getElementById('maxIterations').value),
+                demo_mode: document.getElementById('demoMode').checked
             };
             
             try {
@@ -335,7 +346,8 @@
                 const data = await response.json();
                 
                 if (data.status === 'success') {
-                    addLogEntry(`Created session: ${data.session_id}`, 'success');
+                    const modeText = data.demo_mode ? ' (Demo Mode)' : '';
+                    addLogEntry(`Created session: ${data.session_id}${modeText}`, 'success');
                     document.getElementById('createSessionForm').reset();
                     updateActiveSessions();
                 } else {
