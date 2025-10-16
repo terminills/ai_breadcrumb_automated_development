@@ -1522,6 +1522,147 @@ def api_session_stop(session_id):
     }), 404
 
 
+@app.route('/api/agents/status')
+def api_agents_status():
+    """Get status of all AI agents"""
+    agents = []
+    
+    # Check for active iteration
+    state_file = logs_path / 'iteration_state.json'
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+            
+            # Check if iteration is active (updated recently)
+            last_update = datetime.fromisoformat(state.get('last_update', '2000-01-01'))
+            is_active = (datetime.now() - last_update).total_seconds() < 300  # Active if updated within 5 minutes
+            
+            if is_active:
+                agents.append({
+                    'id': 'copilot_iteration',
+                    'name': 'Copilot Iteration Agent',
+                    'status': 'active',
+                    'current_task': state.get('task_description', 'Unknown'),
+                    'phase': state.get('current_phase', 'unknown'),
+                    'progress': {
+                        'current': state.get('current_iteration', 0),
+                        'total': state.get('total_iterations', 0),
+                        'percentage': (state.get('current_iteration', 0) / max(state.get('total_iterations', 1), 1)) * 100
+                    },
+                    'last_update': state.get('last_update'),
+                    'details': state.get('phase_progress', {})
+                })
+        except Exception as e:
+            logger.error(f"Error reading iteration state: {e}")
+    
+    # Check for active reasoning
+    current_reasoning = reasoning_tracker.get_current_reasoning()
+    if current_reasoning and current_reasoning.get('task_id'):
+        agents.append({
+            'id': 'reasoning_agent',
+            'name': 'AI Reasoning Agent',
+            'status': 'active',
+            'current_task': current_reasoning.get('task_id', 'Unknown'),
+            'phase': current_reasoning.get('phase', 'analyzing'),
+            'progress': {
+                'current': len(current_reasoning.get('reasoning_steps', [])),
+                'total': -1,  # Unknown total
+                'percentage': -1
+            },
+            'last_update': datetime.now().isoformat(),
+            'details': {
+                'breadcrumbs_consulted': len(current_reasoning.get('breadcrumbs_consulted', [])),
+                'patterns_identified': len(current_reasoning.get('patterns_identified', [])),
+                'reasoning_steps': len(current_reasoning.get('reasoning_steps', []))
+            }
+        })
+    
+    # Check for active sessions
+    sessions_dir = logs_path / 'sessions'
+    if sessions_dir.exists():
+        session_files = sorted(sessions_dir.glob('session_*.json'), key=lambda x: x.stat().st_mtime, reverse=True)
+        if session_files:
+            try:
+                with open(session_files[0]) as f:
+                    session = json.load(f)
+                
+                if session.get('status') == 'active':
+                    agents.append({
+                        'id': f"session_{session.get('id', 'unknown')}",
+                        'name': 'Interactive Session Agent',
+                        'status': 'active',
+                        'current_task': session.get('task', 'Unknown'),
+                        'phase': 'interactive',
+                        'progress': {
+                            'current': len(session.get('turns', [])),
+                            'total': -1,
+                            'percentage': -1
+                        },
+                        'last_update': session.get('started_at'),
+                        'details': {
+                            'turns': len(session.get('turns', [])),
+                            'code_generated': len(session.get('generated_code', []))
+                        }
+                    })
+            except Exception as e:
+                logger.error(f"Error reading session: {e}")
+    
+    # If no active agents, add demo/idle agents
+    if not agents:
+        agents = [
+            {
+                'id': 'exploration_agent',
+                'name': 'Code Exploration Agent',
+                'status': 'idle',
+                'current_task': 'Waiting for task',
+                'phase': 'standby',
+                'progress': {
+                    'current': 0,
+                    'total': 0,
+                    'percentage': 0
+                },
+                'last_update': datetime.now().isoformat(),
+                'details': {}
+            },
+            {
+                'id': 'generation_agent',
+                'name': 'Code Generation Agent',
+                'status': 'idle',
+                'current_task': 'Waiting for task',
+                'phase': 'standby',
+                'progress': {
+                    'current': 0,
+                    'total': 0,
+                    'percentage': 0
+                },
+                'last_update': datetime.now().isoformat(),
+                'details': {}
+            },
+            {
+                'id': 'compilation_agent',
+                'name': 'Compilation & Testing Agent',
+                'status': 'idle',
+                'current_task': 'Waiting for task',
+                'phase': 'standby',
+                'progress': {
+                    'current': 0,
+                    'total': 0,
+                    'percentage': 0
+                },
+                'last_update': datetime.now().isoformat(),
+                'details': {}
+            }
+        ]
+    
+    return jsonify({
+        'agents': agents,
+        'total_active': len([a for a in agents if a['status'] == 'active']),
+        'total_idle': len([a for a in agents if a['status'] == 'idle']),
+        'timestamp': datetime.now().isoformat()
+    })
+
+
 if __name__ == '__main__':
     host = config['ui']['host']
     port = config['ui']['port']
