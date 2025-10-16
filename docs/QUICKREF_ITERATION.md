@@ -1,6 +1,45 @@
 # Quick Reference: Enhanced Copilot Iteration
 
-## Key New Features
+## Key Features
+
+### 1. Checkpoint/Resume
+```python
+# Save checkpoint
+checkpoint_path = session.save_checkpoint("feature_v1")
+
+# Load checkpoint
+session.load_checkpoint(checkpoint_path)
+
+# List checkpoints
+checkpoints = session.list_checkpoints()
+```
+
+### 2. Adaptive Retries
+```python
+iteration = CopilotStyleIteration(..., max_retries=3, adaptive_retries=True)
+result = iteration.run_interactive_iteration(task, retry_on_failure=True)
+print(f"Adaptive retries used: {result['retry_count']}")
+```
+
+### 3. Iteration History
+```python
+# View history
+for entry in iteration.iteration_history:
+    print(f"Iteration {entry['iteration']}: {entry['success']}")
+
+# Save/Load state
+iteration.save_iteration_state()
+iteration.load_iteration_state()
+```
+
+### 4. Pattern Learning
+```python
+# Get learned patterns
+patterns = iteration.get_learned_patterns()
+print(f"Overall success rate: {patterns['overall_success_rate']:.1%}")
+```
+
+## Previously Available Features
 
 ### 1. Retry Logic
 ```python

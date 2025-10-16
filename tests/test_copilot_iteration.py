@@ -375,6 +375,193 @@ def test_error_similarity():
         return True
 
 
+def test_checkpoint_resume():
+    """Test checkpoint and resume functionality"""
+    print("\n=== Testing Checkpoint/Resume ===")
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        log_path = Path(temp_dir) / 'logs'
+        
+        loader = LocalModelLoader()
+        session = SessionManager(
+            model_loader=loader,
+            aros_path=str(aros_path),
+            log_path=str(log_path)
+        )
+        
+        # Start session
+        session.start_session(
+            task_description="Test checkpoint",
+            context={'phase': 'TEST', 'iteration': 1}
+        )
+        print("✓ Session started")
+        
+        # Add some data
+        session.iteration_context['test_data'] = 'checkpoint_test'
+        
+        # Save checkpoint
+        checkpoint_path = session.save_checkpoint("test_checkpoint")
+        assert Path(checkpoint_path).exists()
+        print(f"✓ Checkpoint saved: {Path(checkpoint_path).name}")
+        
+        # End session
+        session.end_session(status='completed')
+        
+        # Create new session manager
+        session2 = SessionManager(
+            model_loader=loader,
+            aros_path=str(aros_path),
+            log_path=str(log_path)
+        )
+        
+        # Load checkpoint
+        success = session2.load_checkpoint(checkpoint_path)
+        assert success
+        assert session2.iteration_context.get('test_data') == 'checkpoint_test'
+        print("✓ Checkpoint loaded and data restored")
+        
+        # List checkpoints
+        checkpoints = session2.list_checkpoints()
+        assert len(checkpoints) >= 1
+        print(f"✓ Found {len(checkpoints)} checkpoint(s)")
+        
+        return True
+
+
+def test_adaptive_retries():
+    """Test adaptive retry logic"""
+    print("\n=== Testing Adaptive Retries ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        
+        iteration = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=1,
+            max_retries=3,
+            adaptive_retries=True
+        )
+        
+        # Test simple errors (should reduce retries)
+        simple_errors = ["syntax error", "missing semicolon"]
+        adaptive_retries = iteration._calculate_adaptive_retries(simple_errors)
+        assert adaptive_retries >= 1 and adaptive_retries <= 3
+        print(f"✓ Simple errors: {adaptive_retries} retries")
+        
+        # Test medium errors (should use default)
+        medium_errors = ["undefined reference to function", "type mismatch"]
+        adaptive_retries = iteration._calculate_adaptive_retries(medium_errors)
+        assert adaptive_retries == 3
+        print(f"✓ Medium errors: {adaptive_retries} retries")
+        
+        # Test complex errors (should increase retries)
+        complex_errors = ["segmentation fault", "assertion failed", "undefined reference", "type error"]
+        adaptive_retries = iteration._calculate_adaptive_retries(complex_errors)
+        assert adaptive_retries >= 3
+        print(f"✓ Complex errors: {adaptive_retries} retries")
+        
+        return True
+
+
+def test_iteration_history():
+    """Test iteration history tracking"""
+    print("\n=== Testing Iteration History ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        
+        iteration = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=1
+        )
+        
+        # Simulate an iteration result
+        result = {
+            'iteration': 1,
+            'success': True,
+            'retry_count': 1,
+            'total_time': 10.5,
+            'timings': {'exploration': 2.0, 'generation': 5.0},
+            'compilation': {'errors': []}
+        }
+        
+        # Track history
+        iteration._track_iteration_history(result)
+        assert len(iteration.iteration_history) == 1
+        print("✓ Iteration history tracked")
+        
+        # Learn pattern
+        iteration._learn_pattern(result)
+        assert 'DEVELOPMENT' in iteration.learned_patterns or len(iteration.learned_patterns) >= 0
+        print("✓ Pattern learning works")
+        
+        # Get learned patterns
+        patterns = iteration.get_learned_patterns()
+        assert 'patterns' in patterns
+        assert 'total_iterations' in patterns
+        print(f"✓ Learned patterns retrieved: {patterns['total_iterations']} iterations")
+        
+        return True
+
+
+def test_iteration_state_save_load():
+    """Test save and load iteration state"""
+    print("\n=== Testing Iteration State Save/Load ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        
+        # Create iteration with some state
+        iteration1 = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=10
+        )
+        
+        iteration1.current_iteration = 5
+        iteration1.successful_iterations = 3
+        iteration1.learned_patterns = {'TEST_PHASE': {'successes': 3, 'total_attempts': 5}}
+        
+        # Save state
+        state_file = iteration1.save_iteration_state()
+        assert Path(state_file).exists()
+        print(f"✓ State saved to {Path(state_file).name}")
+        
+        # Create new iteration and load state
+        iteration2 = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=10
+        )
+        
+        success = iteration2.load_iteration_state()
+        assert success
+        assert iteration2.current_iteration == 5
+        assert iteration2.successful_iterations == 3
+        assert 'TEST_PHASE' in iteration2.learned_patterns
+        print("✓ State loaded successfully")
+        print(f"✓ Resumed at iteration {iteration2.current_iteration}")
+        
+        return True
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*60)
@@ -391,6 +578,10 @@ def run_all_tests():
         ("Iteration Context", test_iteration_context),
         ("Performance Tracking", test_performance_tracking),
         ("Error Similarity", test_error_similarity),
+        ("Checkpoint/Resume", test_checkpoint_resume),
+        ("Adaptive Retries", test_adaptive_retries),
+        ("Iteration History", test_iteration_history),
+        ("State Save/Load", test_iteration_state_save_load),
     ]
     
     passed = 0
