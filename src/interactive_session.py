@@ -446,3 +446,95 @@ class SessionManager:
             'avg_code_length': sum(a.get('code_length', 0) for a in attempts) / len(attempts) if attempts else 0,
             'recent_attempts': attempts[-3:] if len(attempts) >= 3 else attempts
         }
+    
+    def save_checkpoint(self, checkpoint_name: Optional[str] = None) -> str:
+        """
+        Save a checkpoint of the current session
+        
+        Args:
+            checkpoint_name: Optional name for the checkpoint
+            
+        Returns:
+            Checkpoint file path
+        """
+        if not self.current_session:
+            raise RuntimeError("No active session to checkpoint")
+        
+        if not checkpoint_name:
+            checkpoint_name = f"checkpoint_{int(datetime.now().timestamp())}"
+        
+        checkpoint_data = {
+            'session': self.current_session,
+            'iteration_context': self.iteration_context,
+            'checkpoint_name': checkpoint_name,
+            'checkpoint_time': datetime.now().isoformat()
+        }
+        
+        checkpoint_dir = self.log_path / 'checkpoints'
+        checkpoint_dir.mkdir(exist_ok=True)
+        
+        checkpoint_file = checkpoint_dir / f"{checkpoint_name}.json"
+        
+        try:
+            with open(checkpoint_file, 'w') as f:
+                json.dump(checkpoint_data, f, indent=2)
+            logger.info(f"Saved checkpoint to {checkpoint_file}")
+            return str(checkpoint_file)
+        except Exception as e:
+            logger.error(f"Failed to save checkpoint: {e}")
+            raise
+    
+    def load_checkpoint(self, checkpoint_path: str) -> bool:
+        """
+        Load a checkpoint and resume the session
+        
+        Args:
+            checkpoint_path: Path to checkpoint file
+            
+        Returns:
+            True if checkpoint loaded successfully
+        """
+        try:
+            with open(checkpoint_path, 'r') as f:
+                checkpoint_data = json.load(f)
+            
+            self.current_session = checkpoint_data['session']
+            self.iteration_context = checkpoint_data['iteration_context']
+            
+            logger.info(f"Loaded checkpoint: {checkpoint_data['checkpoint_name']}")
+            logger.info(f"Session: {self.current_session['id']}")
+            logger.info(f"Task: {self.current_session['task']}")
+            logger.info(f"Turns: {len(self.current_session['turns'])}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Failed to load checkpoint: {e}")
+            return False
+    
+    def list_checkpoints(self) -> List[Dict[str, Any]]:
+        """
+        List available checkpoints
+        
+        Returns:
+            List of checkpoint information
+        """
+        checkpoint_dir = self.log_path / 'checkpoints'
+        if not checkpoint_dir.exists():
+            return []
+        
+        checkpoints = []
+        for checkpoint_file in checkpoint_dir.glob('*.json'):
+            try:
+                with open(checkpoint_file, 'r') as f:
+                    data = json.load(f)
+                checkpoints.append({
+                    'name': data.get('checkpoint_name', checkpoint_file.stem),
+                    'path': str(checkpoint_file),
+                    'time': data.get('checkpoint_time', 'unknown'),
+                    'session_id': data.get('session', {}).get('id', 'unknown'),
+                    'task': data.get('session', {}).get('task', 'unknown')
+                })
+            except Exception as e:
+                logger.warning(f"Could not read checkpoint {checkpoint_file}: {e}")
+        
+        return sorted(checkpoints, key=lambda x: x['time'], reverse=True)

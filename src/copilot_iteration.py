@@ -5,6 +5,7 @@ Interactive development loop with exploration, reasoning, and local models
 
 import logging
 import sys
+import json
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -32,13 +33,15 @@ class CopilotStyleIteration:
         project_name: str,
         log_path: str,
         max_iterations: int = 10,
-        max_retries: int = 3
+        max_retries: int = 3,
+        adaptive_retries: bool = True
     ):
         self.aros_path = Path(aros_path)
         self.project_name = project_name
         self.log_path = Path(log_path)
         self.max_iterations = max_iterations
         self.max_retries = max_retries
+        self.adaptive_retries = adaptive_retries
         
         self.log_path.mkdir(parents=True, exist_ok=True)
         
@@ -68,6 +71,8 @@ class CopilotStyleIteration:
         self.successful_iterations = 0
         self.current_reasoning_id = None
         self.retry_count = 0
+        self.iteration_history = []  # Track history across iterations
+        self.learned_patterns = {}  # Track learned patterns
     
     def run_interactive_iteration(
         self,
@@ -95,7 +100,11 @@ class CopilotStyleIteration:
         logger.info(f"Task: {task.get('phase', 'unknown')}")
         logger.info(f"{'='*60}\n")
         
-        while self.retry_count <= self.max_retries:
+        # Determine max retries (adaptive or fixed)
+        effective_max_retries = self.max_retries
+        result = None
+        
+        while self.retry_count <= effective_max_retries:
             try:
                 result = self._execute_iteration(
                     task, 
@@ -103,13 +112,19 @@ class CopilotStyleIteration:
                     iteration_start_time
                 )
                 
+                # On first failure with adaptive retries, recalculate retry limit
+                if not result['success'] and self.retry_count == 0 and self.adaptive_retries:
+                    errors = result.get('compilation', {}).get('errors', [])
+                    effective_max_retries = self._calculate_adaptive_retries(errors)
+                    logger.info(f"Adjusted max retries to {effective_max_retries} based on error complexity")
+                
                 # If successful or max retries reached, return
-                if result['success'] or not retry_on_failure or self.retry_count >= self.max_retries:
-                    return result
+                if result['success'] or not retry_on_failure or self.retry_count >= effective_max_retries:
+                    break
                 
                 # Otherwise, retry
                 self.retry_count += 1
-                logger.info(f"\n⚠ Iteration failed, retrying ({self.retry_count}/{self.max_retries})...")
+                logger.info(f"\n⚠ Iteration failed, retrying ({self.retry_count}/{effective_max_retries})...")
                 
                 # Add retry context to session
                 if self.session_manager.current_session:
@@ -126,8 +141,19 @@ class CopilotStyleIteration:
                     self.session_manager.end_session(status='failed', summary=str(e))
                 raise
         
+        # Track iteration history and learn patterns
+        if result:
+            self._track_iteration_history(result)
+            self._learn_pattern(result)
+            
+            # Save state periodically
+            if self.current_iteration % 5 == 0:
+                self.save_iteration_state()
+        
         # Max retries reached
-        logger.warning(f"\n⚠ Max retries ({self.max_retries}) reached")
+        if self.retry_count >= effective_max_retries and not result['success']:
+            logger.warning(f"\n⚠ Max retries ({effective_max_retries}) reached")
+        
         return result
     
     def _execute_iteration(
@@ -562,6 +588,189 @@ class CopilotStyleIteration:
             })
         
         return tasks
+
+
+    def _calculate_adaptive_retries(self, errors: List[str]) -> int:
+        """
+        Calculate adaptive retry count based on error complexity
+        
+        Args:
+            errors: List of error messages
+            
+        Returns:
+            Adaptive retry count
+        """
+        if not self.adaptive_retries or not errors:
+            return self.max_retries
+        
+        # Analyze error complexity
+        complexity_score = 0
+        
+        for error in errors:
+            error_lower = error.lower()
+            
+            # Simple errors (syntax, typos) - low complexity
+            if any(keyword in error_lower for keyword in ['syntax error', 'unexpected token', 'missing semicolon']):
+                complexity_score += 1
+            
+            # Medium complexity errors
+            elif any(keyword in error_lower for keyword in ['undefined reference', 'type mismatch', 'incompatible']):
+                complexity_score += 2
+            
+            # Complex errors (logic, architecture)
+            elif any(keyword in error_lower for keyword in ['segmentation fault', 'assertion failed', 'deadlock']):
+                complexity_score += 3
+            
+            # Very complex errors
+            else:
+                complexity_score += 2
+        
+        # Calculate adaptive retry count
+        # Low complexity (score 1-3): fewer retries
+        # Medium complexity (score 4-6): default retries
+        # High complexity (score 7+): more retries
+        
+        if complexity_score <= 3:
+            adaptive_retries = max(1, self.max_retries - 1)
+        elif complexity_score <= 6:
+            adaptive_retries = self.max_retries
+        else:
+            adaptive_retries = min(self.max_retries + 2, 8)  # Cap at 8 retries
+        
+        logger.info(f"Adaptive retries: {adaptive_retries} (complexity score: {complexity_score})")
+        
+        return adaptive_retries
+    
+    def _track_iteration_history(self, result: Dict[str, Any]):
+        """
+        Track iteration history for learning and analysis
+        
+        Args:
+            result: Iteration result
+        """
+        history_entry = {
+            'iteration': self.current_iteration,
+            'timestamp': datetime.now().isoformat(),
+            'success': result['success'],
+            'retry_count': result['retry_count'],
+            'total_time': result['total_time'],
+            'phase_timings': result['timings'],
+            'errors': result.get('compilation', {}).get('errors', [])
+        }
+        
+        self.iteration_history.append(history_entry)
+        
+        # Keep only last 20 iterations in memory
+        if len(self.iteration_history) > 20:
+            self.iteration_history = self.iteration_history[-20:]
+        
+        # Save to disk
+        history_file = self.log_path / 'iteration_history.json'
+        try:
+            with open(history_file, 'w') as f:
+                json.dump(self.iteration_history, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Could not save iteration history: {e}")
+    
+    def _learn_pattern(self, result: Dict[str, Any]):
+        """
+        Learn patterns from successful iterations
+        
+        Args:
+            result: Iteration result
+        """
+        if not result['success']:
+            return
+        
+        # Extract pattern information
+        phase = result.get('generation', {}).get('context', {}).get('phase', 'unknown')
+        
+        if phase not in self.learned_patterns:
+            self.learned_patterns[phase] = {
+                'successes': 0,
+                'total_attempts': 0,
+                'avg_retries': 0,
+                'avg_time': 0,
+                'common_approaches': []
+            }
+        
+        pattern = self.learned_patterns[phase]
+        pattern['successes'] += 1
+        pattern['total_attempts'] += 1
+        pattern['avg_retries'] = (pattern['avg_retries'] * (pattern['total_attempts'] - 1) + result['retry_count']) / pattern['total_attempts']
+        pattern['avg_time'] = (pattern['avg_time'] * (pattern['total_attempts'] - 1) + result['total_time']) / pattern['total_attempts']
+        
+        logger.info(f"Learned pattern for {phase}: {pattern['successes']}/{pattern['total_attempts']} success rate")
+    
+    def get_learned_patterns(self) -> Dict[str, Any]:
+        """
+        Get learned patterns summary
+        
+        Returns:
+            Dictionary of learned patterns
+        """
+        return {
+            'patterns': self.learned_patterns,
+            'total_iterations': len(self.iteration_history),
+            'overall_success_rate': sum(1 for h in self.iteration_history if h['success']) / len(self.iteration_history) if self.iteration_history else 0
+        }
+    
+    def save_iteration_state(self) -> str:
+        """
+        Save the current iteration state for recovery
+        
+        Returns:
+            Path to saved state file
+        """
+        state = {
+            'current_iteration': self.current_iteration,
+            'successful_iterations': self.successful_iterations,
+            'iteration_history': self.iteration_history,
+            'learned_patterns': self.learned_patterns,
+            'project_name': self.project_name,
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        state_file = self.log_path / 'iteration_state.json'
+        try:
+            with open(state_file, 'w') as f:
+                json.dump(state, f, indent=2)
+            logger.info(f"Saved iteration state to {state_file}")
+            return str(state_file)
+        except Exception as e:
+            logger.error(f"Failed to save iteration state: {e}")
+            raise
+    
+    def load_iteration_state(self, state_file: Optional[str] = None) -> bool:
+        """
+        Load iteration state for recovery
+        
+        Args:
+            state_file: Optional path to state file (uses default if not provided)
+            
+        Returns:
+            True if state loaded successfully
+        """
+        if not state_file:
+            state_file = self.log_path / 'iteration_state.json'
+        
+        try:
+            with open(state_file, 'r') as f:
+                state = json.load(f)
+            
+            self.current_iteration = state['current_iteration']
+            self.successful_iterations = state['successful_iterations']
+            self.iteration_history = state['iteration_history']
+            self.learned_patterns = state['learned_patterns']
+            
+            logger.info(f"Loaded iteration state from {state_file}")
+            logger.info(f"Resuming at iteration {self.current_iteration}")
+            logger.info(f"Learned patterns: {len(self.learned_patterns)}")
+            
+            return True
+        except Exception as e:
+            logger.warning(f"Could not load iteration state: {e}")
+            return False
 
 
 def main():

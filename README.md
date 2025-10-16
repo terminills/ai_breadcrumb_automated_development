@@ -100,7 +100,7 @@ Comprehensive examples demonstrating the complete AI development lifecycle from 
 - **Interactive Sessions**: Multi-turn conversations with context preservation
 - **Local Models**: Uses Salesforce Codegen + Llama/Mistral locally
 
-**NEW Enhancements:**
+**Enhanced Capabilities:**
 - ✨ **Reasoning Tracker**: Captures AI thought processes and decision chains
 - ✨ **Iteration Context**: Maintains context and learns across iterations
 - ✨ **Retry Logic**: Automatic retry with intelligent error recovery (configurable)
@@ -108,14 +108,22 @@ Comprehensive examples demonstrating the complete AI development lifecycle from 
 - ✨ **Performance Monitoring**: Detailed timing and metrics for each phase
 - ✨ **Streaming Generation**: Token-by-token code generation for real-time feedback
 
+**NEW - Advanced Features:**
+- 🚀 **Checkpoint/Resume**: Save and restore sessions at any point
+- 🚀 **Adaptive Retries**: Dynamic retry count based on error complexity
+- 🚀 **Pattern Learning**: Automatically learns from successful iterations
+- 🚀 **Iteration History**: Track and analyze performance across iterations
+- 🚀 **State Persistence**: Full recovery from interruptions
+
 **Documentation**: 
 - [Main Guide](docs/COPILOT_STYLE_ITERATION.md) - Complete system documentation
-- [Enhancements](docs/ITERATION_ENHANCEMENTS.md) - New features and capabilities
+- [Enhancements](docs/ITERATION_ENHANCEMENTS.md) - Enhanced features and capabilities
+- [Latest Features](docs/COPILOT_ENHANCEMENTS.md) - New checkpoint, adaptive retry, and learning features
 - [Quick Reference](docs/QUICKREF_ITERATION.md) - Common tasks and commands
 
 **Quick Start:**
 ```bash
-# Run enhanced Copilot-style iteration with retries
+# Run enhanced Copilot-style iteration with adaptive retries
 ./scripts/run_copilot_iteration.sh radeonsi 10
 ```
 
