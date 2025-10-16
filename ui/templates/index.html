@@ -510,14 +510,6 @@
             </div>
         </div>
         
-        <!-- Recent Activity Section -->
-        <div class="card">
-            <h2>Recent Breadcrumbs</h2>
-            <div class="log-container" id="recentBreadcrumbs">
-                <div class="loading">Loading breadcrumbs...</div>
-            </div>
-        </div>
-        
         <div class="card">
             <h2>Compilation Logs</h2>
             <div class="log-container" id="compilationLogs">
@@ -581,22 +573,6 @@
                             `<span class="phase-badge ${phaseClass}">${phase}: ${count}</span>`;
                     });
                     phasesContainer.innerHTML += '</div>';
-                }
-                
-                // Display recent breadcrumbs
-                if (breadcrumbs.recent_breadcrumbs) {
-                    const container = document.getElementById('recentBreadcrumbs');
-                    container.innerHTML = '';
-                    breadcrumbs.recent_breadcrumbs.forEach(bc => {
-                        const entry = document.createElement('div');
-                        entry.className = 'log-entry';
-                        entry.innerHTML = `
-                            <strong>${bc.phase || 'Unknown'}</strong> [${bc.status || 'Unknown'}]<br>
-                            <small>${bc.file}:${bc.line}</small><br>
-                            ${bc.strategy ? `<em>${bc.strategy}</em>` : ''}
-                        `;
-                        container.appendChild(entry);
-                    });
                 }
             }
             
