@@ -11,18 +11,35 @@ from pathlib import Path
 
 
 def check_dependencies():
-    """Check if required dependencies are installed"""
+    """Check if required dependencies are installed with detailed diagnostics"""
     missing = []
+    torch_info = {}
+    transformers_info = {}
     
     try:
         import torch
+        torch_info = {
+            'version': torch.__version__,
+            'cuda_available': torch.cuda.is_available(),
+            'cuda_version': torch.version.cuda if torch.cuda.is_available() else None,
+            'rocm_available': hasattr(torch.version, 'hip'),
+            'rocm_version': torch.version.hip if hasattr(torch.version, 'hip') else None,
+            'device_count': torch.cuda.device_count() if torch.cuda.is_available() else 0
+        }
     except ImportError:
         missing.append("torch")
+    except Exception as e:
+        print(f"⚠️  PyTorch is installed but has issues: {e}")
     
     try:
         import transformers
+        transformers_info = {
+            'version': transformers.__version__
+        }
     except ImportError:
         missing.append("transformers")
+    except Exception as e:
+        print(f"⚠️  Transformers is installed but has issues: {e}")
     
     if missing:
         print("❌ Missing required dependencies:")
@@ -31,6 +48,30 @@ def check_dependencies():
         print("\nInstall with:")
         print("   pip install torch transformers")
         return False
+    
+    # Print detailed info when dependencies are available
+    print("\n✓ PyTorch Information:")
+    print(f"  Version: {torch_info.get('version', 'unknown')}")
+    print(f"  CUDA Available: {torch_info.get('cuda_available', False)}")
+    if torch_info.get('cuda_available'):
+        print(f"  CUDA Version: {torch_info.get('cuda_version', 'unknown')}")
+        print(f"  GPU Count: {torch_info.get('device_count', 0)}")
+        
+        # Show GPU details
+        try:
+            import torch
+            for i in range(torch.cuda.device_count()):
+                gpu_name = torch.cuda.get_device_name(i)
+                gpu_mem = torch.cuda.get_device_properties(i).total_memory / (1024**3)
+                print(f"    GPU {i}: {gpu_name} ({gpu_mem:.1f}GB)")
+        except Exception as e:
+            print(f"  Could not get GPU details: {e}")
+    
+    if torch_info.get('rocm_available'):
+        print(f"  ROCm Available: Yes")
+        print(f"  ROCm Version: {torch_info.get('rocm_version', 'unknown')}")
+    
+    print(f"\n✓ Transformers Version: {transformers_info.get('version', 'unknown')}")
     
     return True
 
