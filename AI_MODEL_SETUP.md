@@ -128,6 +128,53 @@ You can change the cache directory:
 export TRANSFORMERS_CACHE=/path/to/cache
 ```
 
+## Using Models: Pipeline vs Direct Loading
+
+There are two ways to use Llama/transformers models, and they use **different parameter names**:
+
+### Method 1: Using pipeline() (Simpler)
+
+```python
+from transformers import pipeline
+
+# CORRECT: Use 'dtype' parameter
+pipe = pipeline(
+    "text-generation",
+    model="meta-llama/Llama-2-7b-chat-hf",
+    dtype="auto",  # Note: 'dtype' not 'torch_dtype'
+    device_map="auto"
+)
+
+out = pipe("Your prompt here", max_new_tokens=200)
+print(out[0]["generated_text"])
+```
+
+**Common Error:** Using `torch_dtype="auto"` with `pipeline()` will cause errors. The parameter is `dtype`.
+
+### Method 2: Using from_pretrained() (More Control)
+
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+# CORRECT: Use 'torch_dtype' parameter
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-2-7b-chat-hf",
+    torch_dtype=torch.float16,  # Note: 'torch_dtype' not 'dtype'
+    device_map="auto"
+)
+```
+
+### Parameter Reference
+
+| Function | Correct Parameter | Valid Values |
+|----------|------------------|--------------|
+| `pipeline()` | `dtype` | `"auto"`, `torch.float16`, `torch.float32`, `torch.bfloat16` |
+| `from_pretrained()` | `torch_dtype` | `torch.float16`, `torch.float32`, `torch.bfloat16` |
+
+**See also:** `examples/llama_pipeline_example.py` for complete working examples.
+
 ## Troubleshooting
 
 ### "No module named 'torch'"
