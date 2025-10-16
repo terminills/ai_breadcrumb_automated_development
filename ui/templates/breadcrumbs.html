@@ -382,6 +382,86 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 5px;
         }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal.active {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            border-radius: 10px;
+            width: 90%;
+            max-width: 1200px;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.5em;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        #graph-network {
+            width: 100%;
+            height: 600px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+        
+        .file-viewer-content {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        
+        .file-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .file-info p {
+            margin: 5px 0;
+        }
     </style>
 </head>
 <body>
@@ -476,6 +556,34 @@
         </div>
         <div class="drawer-content" id="drawerContent">
             <div class="loading">Loading...</div>
+        </div>
+    </div>
+    
+    <!-- Graph Modal -->
+    <div class="modal" id="graphModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Breadcrumb Relationship Graph</h2>
+                <button class="close-btn" onclick="closeGraphModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="graph-network"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- File Viewer Modal -->
+    <div class="modal" id="fileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>File Viewer</h2>
+                <button class="close-btn" onclick="closeFileModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="fileViewerContent">
+                    <div class="loading">Loading file...</div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -704,8 +812,8 @@
                 
                 let html = `
                     <div class="drawer-actions">
-                        <button onclick="alert('View File: ${b.file_path || 'N/A'}')">View File</button>
-                        <button onclick="showGraph('${b.ai_breadcrumb || ''}')">Open Graph</button>
+                        <button onclick="viewFile('${b.file_path || ''}', ${b.line_number || 0})">View File</button>
+                        <button onclick="showGraph('${b.ai_breadcrumb || ''}', '${b.file_path || ''}')">Open Graph</button>
                     </div>
                     
                     <div class="drawer-section">
@@ -815,9 +923,193 @@
             document.getElementById('detailDrawer').classList.remove('open');
         }
         
-        // Show graph (placeholder for now)
-        function showGraph(marker) {
-            alert(`Graph visualization for marker "${marker}" would open here.\n\nThis feature requires vis-network or cytoscape.js library integration.`);
+        // Show graph visualization
+        async function showGraph(marker, filePath = '') {
+            const modal = document.getElementById('graphModal');
+            const networkDiv = document.getElementById('graph-network');
+            
+            modal.classList.add('active');
+            networkDiv.innerHTML = '<div class="loading">Loading graph data...</div>';
+            
+            try {
+                // Build query string
+                const params = new URLSearchParams();
+                if (marker) params.append('marker', marker);
+                if (filePath) params.append('file', filePath);
+                
+                const response = await fetch(`/api/breadcrumbs/graph?${params}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    networkDiv.innerHTML = `<div class="loading">Error: ${data.error}</div>`;
+                    return;
+                }
+                
+                if (data.nodes.length === 0) {
+                    networkDiv.innerHTML = `<div class="loading">No breadcrumbs found for visualization</div>`;
+                    return;
+                }
+                
+                // Create a simple HTML-based graph visualization
+                let html = `
+                    <div style="padding: 20px;">
+                        <h3 style="margin-bottom: 20px;">Breadcrumb Relationships</h3>
+                        <div style="margin-bottom: 20px;">
+                            <strong>Nodes:</strong> ${data.nodes.length} | <strong>Edges:</strong> ${data.edges.length}
+                        </div>
+                `;
+                
+                // Show nodes grouped by status
+                const nodesByStatus = {};
+                data.nodes.forEach(node => {
+                    const status = node.status || 'UNKNOWN';
+                    if (!nodesByStatus[status]) {
+                        nodesByStatus[status] = [];
+                    }
+                    nodesByStatus[status].push(node);
+                });
+                
+                // Display nodes by status
+                for (const [status, nodes] of Object.entries(nodesByStatus)) {
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <h4 style="color: #ffd700; margin-bottom: 10px;">${status} (${nodes.length})</h4>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">
+                    `;
+                    
+                    nodes.forEach(node => {
+                        const borderColor = node.color || '#9ca3af';
+                        html += `
+                            <div style="
+                                background: rgba(0, 0, 0, 0.3);
+                                border-left: 4px solid ${borderColor};
+                                padding: 10px;
+                                border-radius: 5px;
+                                font-size: 0.9em;
+                            ">
+                                <div style="font-weight: bold; margin-bottom: 5px;">${node.label}</div>
+                                <div style="font-size: 0.85em; opacity: 0.9;">${node.title}</div>
+                                <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">
+                                    Phase: ${node.phase || 'N/A'}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                }
+                
+                // Show relationships
+                if (data.edges.length > 0) {
+                    html += `
+                        <div style="margin-top: 30px;">
+                            <h4 style="color: #ffd700; margin-bottom: 10px;">Relationships (${data.edges.length})</h4>
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                    `;
+                    
+                    data.edges.forEach(edge => {
+                        const fromNode = data.nodes.find(n => n.id === edge.from);
+                        const toNode = data.nodes.find(n => n.id === edge.to);
+                        const edgeColor = edge.label === 'blocks' ? '#ef4444' : '#3b82f6';
+                        
+                        html += `
+                            <div style="
+                                background: rgba(0, 0, 0, 0.2);
+                                padding: 12px;
+                                border-radius: 5px;
+                                border-left: 3px solid ${edgeColor};
+                            ">
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <div style="flex: 1; font-size: 0.9em;">
+                                        <strong>${fromNode ? fromNode.label : 'Unknown'}</strong>
+                                    </div>
+                                    <div style="
+                                        background: ${edgeColor};
+                                        color: white;
+                                        padding: 4px 12px;
+                                        border-radius: 12px;
+                                        font-size: 0.8em;
+                                        font-weight: 600;
+                                    ">
+                                        ${edge.label || 'related to'}
+                                    </div>
+                                    <div style="flex: 1; font-size: 0.9em; text-align: right;">
+                                        <strong>${toNode ? toNode.label : 'Unknown'}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    html += `</div></div>`;
+                } else {
+                    html += `
+                        <div style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 5px; text-align: center;">
+                            <em>No relationships defined between these breadcrumbs</em>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+                networkDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Error loading graph:', error);
+                networkDiv.innerHTML = `<div class="loading">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Close graph modal
+        function closeGraphModal() {
+            document.getElementById('graphModal').classList.remove('active');
+        }
+        
+        // View file content
+        async function viewFile(filePath, lineNumber = 0) {
+            const modal = document.getElementById('fileModal');
+            const content = document.getElementById('fileViewerContent');
+            
+            modal.classList.add('active');
+            content.innerHTML = '<div class="loading">Loading file...</div>';
+            
+            try {
+                // For now, show file information
+                // In a full implementation, this would fetch actual file content from the server
+                let html = `
+                    <div class="file-info">
+                        <p><strong>File Path:</strong> ${filePath}</p>
+                        <p><strong>Line Number:</strong> ${lineNumber}</p>
+                        <p><em>Note: File content viewing requires additional backend implementation to safely access and display file contents.</em></p>
+                    </div>
+                    <div class="file-viewer-content">
+File content viewer is not yet connected to a backend endpoint.
+
+To implement full file viewing:
+1. Create a backend API endpoint (e.g., /api/file/view) that:
+   - Validates the file path is within the AROS repository
+   - Reads the file content safely
+   - Returns the content with syntax highlighting metadata
+   
+2. Update this frontend to:
+   - Fetch from the new endpoint
+   - Display with line numbers
+   - Highlight the specific line number
+   - Add syntax highlighting
+
+For now, the file path and line number are shown above.
+                    </div>
+                `;
+                
+                content.innerHTML = html;
+            } catch (error) {
+                console.error('Error viewing file:', error);
+                content.innerHTML = `<div class="loading">Error: ${error.message}</div>`;
+            }
+        }
+        
+        // Close file modal
+        function closeFileModal() {
+            document.getElementById('fileModal').classList.remove('active');
         }
         
         // Initialize
