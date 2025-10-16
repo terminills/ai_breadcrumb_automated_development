@@ -560,11 +560,14 @@
                         breadcrumbs.validation.error_count;
                 }
                 
-                // Display phases
+                // Display phases (limited to 5)
                 const phasesContainer = document.getElementById('phasesContainer');
                 if (breadcrumbs.statistics.phases) {
                     phasesContainer.innerHTML = '<div style="margin-top: 15px;">';
-                    Object.entries(breadcrumbs.statistics.phases).forEach(([phase, count]) => {
+                    const phaseEntries = Object.entries(breadcrumbs.statistics.phases);
+                    const limitedPhases = phaseEntries.slice(0, 5);
+                    
+                    limitedPhases.forEach(([phase, count]) => {
                         const phaseClass = phase.toLowerCase().includes('graphics') ? 'phase-graphics' :
                                          phase.toLowerCase().includes('kernel') ? 'phase-kernel' :
                                          phase.toLowerCase().includes('printer') ? 'phase-printer' :
@@ -572,6 +575,13 @@
                         phasesContainer.innerHTML += 
                             `<span class="phase-badge ${phaseClass}">${phase}: ${count}</span>`;
                     });
+                    
+                    // Show indicator if there are more phases
+                    if (phaseEntries.length > 5) {
+                        phasesContainer.innerHTML += 
+                            `<span class="phase-badge" style="background: rgba(255, 255, 255, 0.1);">+${phaseEntries.length - 5} more</span>`;
+                    }
+                    
                     phasesContainer.innerHTML += '</div>';
                 }
             }
@@ -801,6 +811,65 @@
             
             // Update iteration history
             updateIterationHistory();
+            
+            // Update compilation logs
+            updateCompilationLogs();
+        }
+        
+        // Update compilation logs display
+        async function updateCompilationLogs() {
+            const compilationHistory = await fetchData('/api/compilation/history');
+            const logsContainer = document.getElementById('compilationLogs');
+            
+            if (compilationHistory && compilationHistory.history && compilationHistory.history.length > 0) {
+                logsContainer.innerHTML = '';
+                
+                // Display recent compilation attempts
+                compilationHistory.history.forEach(entry => {
+                    const success = entry.success || false;
+                    const statusIcon = success ? '✓' : '✗';
+                    const statusClass = success ? 'success-count' : 'error-count';
+                    
+                    // Format timestamp if available
+                    let timestamp = 'Unknown time';
+                    if (entry.timestamp) {
+                        try {
+                            const date = new Date(entry.timestamp);
+                            if (!isNaN(date.getTime())) {
+                                timestamp = date.toLocaleString();
+                            }
+                        } catch (e) {
+                            console.error('Invalid timestamp:', entry.timestamp);
+                        }
+                    }
+                    
+                    const div = document.createElement('div');
+                    div.className = 'log-entry';
+                    div.innerHTML = `
+                        <span class="${statusClass}" style="font-size: 1.5em; margin-right: 10px;">${statusIcon}</span>
+                        <div style="flex: 1;">
+                            <strong>Compilation #${entry.iteration || '?'}</strong><br>
+                            <small>${timestamp}</small><br>
+                            ${entry.file ? `<strong>File:</strong> ${entry.file}<br>` : ''}
+                            ${entry.errors && entry.errors.length > 0 ? `
+                                <strong style="color: #ef4444;">Errors (${entry.errors.length}):</strong><br>
+                                <div style="margin-left: 15px; font-family: monospace; font-size: 0.85em;">
+                                    ${entry.errors.slice(0, 3).map(err => 
+                                        `<div style="margin: 5px 0;">${err}</div>`
+                                    ).join('')}
+                                    ${entry.errors.length > 3 ? `<em>...and ${entry.errors.length - 3} more</em>` : ''}
+                                </div>
+                            ` : ''}
+                            ${success ? '<span style="color: #10b981;">✓ Compilation successful</span>' : ''}
+                        </div>
+                    `;
+                    logsContainer.appendChild(div);
+                });
+            } else {
+                logsContainer.innerHTML = `
+                    <div class="loading">No compilation logs yet</div>
+                `;
+            }
         }
         
         // Trigger breadcrumb scan
@@ -1203,11 +1272,19 @@
         // Update detailed iteration information
         async function updateIterationDetails() {
             const details = await fetchData('/api/iteration/details');
-            if (!details || details.status !== 'ok') return;
+            if (!details || details.status !== 'ok') {
+                // Hide all iteration detail cards when no active iteration
+                document.getElementById('explorationCard').style.display = 'none';
+                document.getElementById('generationCard').style.display = 'none';
+                document.getElementById('reviewCard').style.display = 'none';
+                document.getElementById('compilationPhaseCard').style.display = 'none';
+                return;
+            }
             
-            // Update exploration card
-            if (details.exploration && Object.keys(details.exploration).length > 0) {
-                const explorationCard = document.getElementById('explorationCard');
+            // Update exploration card (show if exploration has data)
+            const explorationCard = document.getElementById('explorationCard');
+            if (details.exploration && Object.keys(details.exploration).length > 0 && 
+                (details.exploration.files_analyzed > 0 || details.exploration.breadcrumbs_analyzed > 0)) {
                 explorationCard.style.display = 'block';
                 
                 document.getElementById('explorationFiles').textContent = 
@@ -1218,12 +1295,17 @@
                 const insightsContainer = document.getElementById('explorationInsights');
                 if (details.exploration.insights) {
                     insightsContainer.innerHTML = `<div class="log-entry">${details.exploration.insights}</div>`;
+                } else {
+                    insightsContainer.innerHTML = '<div class="loading">No insights yet...</div>';
                 }
+            } else {
+                explorationCard.style.display = 'none';
             }
             
-            // Update generation card
-            if (details.generation && details.phase === 'generation') {
-                const generationCard = document.getElementById('generationCard');
+            // Update generation card (show only during generation phase or if code exists)
+            const generationCard = document.getElementById('generationCard');
+            if (details.generation && (details.phase === 'generation' || 
+                (details.generation.code && details.generation.code.length > 0))) {
                 generationCard.style.display = 'block';
                 
                 document.getElementById('generationStatus').textContent = 
@@ -1232,12 +1314,17 @@
                 const streamContainer = document.getElementById('generationStream');
                 if (details.generation.code) {
                     streamContainer.textContent = details.generation.code;
+                } else {
+                    streamContainer.textContent = 'Generating code...';
                 }
+            } else {
+                generationCard.style.display = 'none';
             }
             
-            // Update review card
-            if (details.review && Object.keys(details.review).length > 0) {
-                const reviewCard = document.getElementById('reviewCard');
+            // Update review card (show if review data exists)
+            const reviewCard = document.getElementById('reviewCard');
+            if (details.review && Object.keys(details.review).length > 0 && 
+                (details.review.status || details.review.review)) {
                 reviewCard.style.display = 'block';
                 
                 document.getElementById('reviewStatus').textContent = 
@@ -1246,12 +1333,16 @@
                 const reviewContainer = document.getElementById('reviewContent');
                 if (details.review.review) {
                     reviewContainer.innerHTML = `<div class="log-entry">${details.review.review}</div>`;
+                } else {
+                    reviewContainer.innerHTML = '<div class="loading">Review in progress...</div>';
                 }
+            } else {
+                reviewCard.style.display = 'none';
             }
             
-            // Update compilation phase card
+            // Update compilation phase card (show if compilation data exists)
+            const compilationCard = document.getElementById('compilationPhaseCard');
             if (details.compilation && Object.keys(details.compilation).length > 0) {
-                const compilationCard = document.getElementById('compilationPhaseCard');
                 compilationCard.style.display = 'block';
                 
                 const success = details.compilation.success;
@@ -1263,15 +1354,25 @@
                 const logContainer = document.getElementById('compilationPhaseLog');
                 if (details.compilation.errors && details.compilation.errors.length > 0) {
                     logContainer.innerHTML = '';
-                    details.compilation.errors.forEach(error => {
+                    details.compilation.errors.slice(0, 5).forEach(error => {
                         const errorDiv = document.createElement('div');
                         errorDiv.className = 'log-entry';
                         errorDiv.innerHTML = `<span class="error-count">✗</span> ${error}`;
                         logContainer.appendChild(errorDiv);
                     });
+                    if (details.compilation.errors.length > 5) {
+                        const moreDiv = document.createElement('div');
+                        moreDiv.className = 'log-entry';
+                        moreDiv.innerHTML = `<em>...and ${details.compilation.errors.length - 5} more errors</em>`;
+                        logContainer.appendChild(moreDiv);
+                    }
                 } else if (success) {
                     logContainer.innerHTML = '<div class="log-entry" style="color: #4ade80;">✓ Compilation successful</div>';
+                } else {
+                    logContainer.innerHTML = '<div class="loading">Compiling...</div>';
                 }
+            } else {
+                compilationCard.style.display = 'none';
             }
         }
         

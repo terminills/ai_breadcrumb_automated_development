@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *.so
 .Python
+env/
+venv/
+ENV/
 build/
 develop-eggs/
 dist/
@@ -20,50 +23,31 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environments
-venv/
-ENV/
-env/
+# Test files
+aros-test/
+test.c
+breadcrumbs.json
 
-# IDEs
+# Logs
+logs/
+*.log
+
+# Model files
+models/
+
+# Training data
+training_data/
+
+# AROS source
+aros-src/
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Logs
-logs/
-*.log
-
-# AROS Repository (large, cloned separately)
-aros-src/
-
-# AI Models (large)
-models/
-
-# Generated breadcrumb data
-breadcrumbs.json
-
-# GitHub Token (stored in ~/.aros_github_token, outside repo)
-# Token is never stored in the repository directory
-
-# Temporary files
-*.tmp
-.DS_Store
-tmp/
-
-# Flask
-instance/
-.webassets-cache
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
 # OS
+.DS_Store
 Thumbs.db
-
-# Accidental pip install artifacts (files starting with =)
-=*

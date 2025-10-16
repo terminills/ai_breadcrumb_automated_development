@@ -1073,30 +1073,41 @@
             content.innerHTML = '<div class="loading">Loading file...</div>';
             
             try {
-                // For now, show file information
-                // In a full implementation, this would fetch actual file content from the server
+                // Fetch file content from backend
+                const response = await fetch(`/api/file/view?path=${encodeURIComponent(filePath)}&line=${lineNumber}&context=15`);
+                const data = await response.json();
+                
+                if (data.status === 'error') {
+                    content.innerHTML = `
+                        <div class="file-info">
+                            <p><strong>Error:</strong> ${data.message}</p>
+                            <p><strong>File Path:</strong> ${filePath}</p>
+                            <p><strong>Line Number:</strong> ${lineNumber}</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Build file viewer HTML
                 let html = `
                     <div class="file-info">
-                        <p><strong>File Path:</strong> ${filePath}</p>
-                        <p><strong>Line Number:</strong> ${lineNumber}</p>
-                        <p><em>Note: File content viewing requires additional backend implementation to safely access and display file contents.</em></p>
+                        <p><strong>File:</strong> ${data.file_path}</p>
+                        <p><strong>Language:</strong> ${data.language}</p>
+                        <p><strong>Total Lines:</strong> ${data.total_lines}</p>
+                        <p><strong>Showing:</strong> Lines ${data.start_line}-${data.end_line}</p>
+                        ${data.highlight_line ? `<p><strong>Highlighted:</strong> Line ${data.highlight_line}</p>` : ''}
                     </div>
                     <div class="file-viewer-content">
-File content viewer is not yet connected to a backend endpoint.
-
-To implement full file viewing:
-1. Create a backend API endpoint (e.g., /api/file/view) that:
-   - Validates the file path is within the AROS repository
-   - Reads the file content safely
-   - Returns the content with syntax highlighting metadata
-   
-2. Update this frontend to:
-   - Fetch from the new endpoint
-   - Display with line numbers
-   - Highlight the specific line number
-   - Add syntax highlighting
-
-For now, the file path and line number are shown above.
+                        <pre style="margin: 0; padding: 10px; background: #1e1e1e; color: #d4d4d4; overflow-x: auto; border-radius: 4px;">`;
+                
+                data.content.forEach(line => {
+                    const lineClass = line.highlight ? 'background: #4a4a2a; border-left: 3px solid #fbbf24;' : '';
+                    const lineNumStyle = 'display: inline-block; width: 50px; text-align: right; margin-right: 15px; color: #858585; user-select: none;';
+                    const lineContent = escapeHtml(line.content);
+                    html += `<div style="${lineClass} padding: 2px 0;"><span style="${lineNumStyle}">${line.line_number}</span>${lineContent || ' '}</div>`;
+                });
+                
+                html += `</pre>
                     </div>
                 `;
                 
@@ -1105,6 +1116,13 @@ For now, the file path and line number are shown above.
                 console.error('Error viewing file:', error);
                 content.innerHTML = `<div class="loading">Error: ${error.message}</div>`;
             }
+        }
+        
+        // Helper function to escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         // Close file modal
