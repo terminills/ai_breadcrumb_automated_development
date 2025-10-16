@@ -562,6 +562,282 @@ def test_iteration_state_save_load():
         return True
 
 
+def test_pattern_recommendations():
+    """Test pattern recommendation system"""
+    print("\n=== Testing Pattern Recommendations ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        
+        iteration = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=10
+        )
+        
+        # Add some learned patterns
+        iteration.learned_patterns = {
+            'SHADER_COMPILATION': {
+                'successes': 8,
+                'total_attempts': 10,
+                'avg_retries': 1.5,
+                'avg_time': 45.0,
+                'common_approaches': []
+            }
+        }
+        
+        # Add some history
+        iteration.iteration_history = [
+            {'iteration': 1, 'phase': 'SHADER_COMPILATION', 'success': True, 'retry_count': 1, 'total_time': 42.0},
+            {'iteration': 2, 'phase': 'SHADER_COMPILATION', 'success': True, 'retry_count': 2, 'total_time': 48.0},
+            {'iteration': 3, 'phase': 'SHADER_COMPILATION', 'success': False, 'retry_count': 3, 'total_time': 50.0},
+        ]
+        
+        # Get recommendation
+        recommendation = iteration.get_pattern_recommendation('SHADER_COMPILATION', 'MEDIUM')
+        
+        assert 'suggested_retries' in recommendation
+        assert 'estimated_time' in recommendation
+        assert 'success_probability' in recommendation
+        assert 'similar_tasks' in recommendation
+        assert 'best_practices' in recommendation
+        
+        print(f"✓ Recommendation generated for SHADER_COMPILATION")
+        print(f"  Success probability: {recommendation['success_probability']*100:.0f}%")
+        print(f"  Suggested retries: {recommendation['suggested_retries']}")
+        print(f"  Estimated time: {recommendation['estimated_time']:.0f}s")
+        print(f"  Similar tasks found: {len(recommendation['similar_tasks'])}")
+        print(f"  Best practices: {len(recommendation['best_practices'])}")
+        
+        # Test for unknown phase
+        recommendation2 = iteration.get_pattern_recommendation('UNKNOWN_PHASE')
+        assert 'best_practices' in recommendation2
+        assert any('No historical data' in practice for practice in recommendation2['best_practices'])
+        print("✓ Handles unknown phase correctly")
+        
+        return True
+
+
+def test_checkpoint_diff():
+    """Test checkpoint comparison functionality"""
+    print("\n=== Testing Checkpoint Diff ===")
+    
+    from src.interactive_session import SessionManager
+    from src.local_models import LocalModelLoader
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        log_path = Path(temp_dir) / 'logs'
+        
+        loader = LocalModelLoader()
+        session = SessionManager(loader, str(aros_path), str(log_path))
+        
+        # Create first checkpoint
+        session.start_session("Test task", {'phase': 'TEST'})
+        session.iteration_context['step'] = 1
+        cp1_path = session.save_checkpoint("checkpoint1")
+        session.end_session()
+        
+        # Create second checkpoint with changes
+        session.start_session("Test task", {'phase': 'TEST'})
+        session.iteration_context['step'] = 2
+        session.iteration_context['new_data'] = 'value'
+        cp2_path = session.save_checkpoint("checkpoint2")
+        session.end_session()
+        
+        # Compare checkpoints
+        diff = session.compare_checkpoints(cp1_path, cp2_path)
+        
+        assert 'iteration_context_diff' in diff
+        assert 'summary' in diff
+        assert len(diff['summary']) > 0
+        
+        print("✓ Checkpoint comparison works")
+        print(f"  Summary lines: {len(diff['summary'])}")
+        for line in diff['summary']:
+            print(f"    {line}")
+        
+        return True
+
+
+def test_pattern_export_import():
+    """Test pattern export and import"""
+    print("\n=== Testing Pattern Export/Import ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        log_path1 = Path(temp_dir) / 'logs1'
+        log_path2 = Path(temp_dir) / 'logs2'
+        
+        # Create first iteration with patterns
+        iteration1 = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='project1',
+            log_path=str(log_path1),
+            max_iterations=10
+        )
+        
+        iteration1.learned_patterns = {
+            'SHADER_COMPILATION': {
+                'successes': 8,
+                'total_attempts': 10,
+                'avg_retries': 1.5,
+                'avg_time': 45.0,
+                'common_approaches': []
+            },
+            'MEMORY_MANAGER': {
+                'successes': 5,
+                'total_attempts': 7,
+                'avg_retries': 2.0,
+                'avg_time': 52.0,
+                'common_approaches': []
+            }
+        }
+        
+        iteration1.iteration_history = [
+            {'iteration': 1, 'success': True, 'retry_count': 1, 'total_time': 42.0}
+        ]
+        
+        # Export patterns
+        export_path = Path(temp_dir) / 'patterns_export.json'
+        exported_file = iteration1.export_learned_patterns(str(export_path))
+        assert Path(exported_file).exists()
+        print(f"✓ Patterns exported to {Path(exported_file).name}")
+        
+        # Create second iteration and import patterns
+        iteration2 = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='project2',
+            log_path=str(log_path2),
+            max_iterations=10
+        )
+        
+        # Import with merge
+        success = iteration2.import_learned_patterns(exported_file, merge=True)
+        assert success
+        assert 'SHADER_COMPILATION' in iteration2.learned_patterns
+        assert 'MEMORY_MANAGER' in iteration2.learned_patterns
+        print("✓ Patterns imported successfully")
+        print(f"  Imported {len(iteration2.learned_patterns)} patterns")
+        
+        # Test import with replace
+        iteration2.learned_patterns = {'EXISTING': {'successes': 1, 'total_attempts': 1}}
+        success = iteration2.import_learned_patterns(exported_file, merge=False)
+        assert success
+        assert 'EXISTING' not in iteration2.learned_patterns
+        assert 'SHADER_COMPILATION' in iteration2.learned_patterns
+        print("✓ Replace mode works correctly")
+        
+        return True
+
+
+def test_analytics():
+    """Test iteration analytics"""
+    print("\n=== Testing Iteration Analytics ===")
+    
+    from src.copilot_iteration import CopilotStyleIteration
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+        aros_path = Path(temp_dir) / 'aros-src'
+        aros_path.mkdir()
+        
+        iteration = CopilotStyleIteration(
+            aros_path=str(aros_path),
+            project_name='test',
+            log_path=str(Path(temp_dir) / 'logs'),
+            max_iterations=10
+        )
+        
+        # Add some history
+        iteration.iteration_history = [
+            {
+                'iteration': 1,
+                'phase': 'SHADER_COMPILATION',
+                'success': True,
+                'retry_count': 1,
+                'total_time': 45.0,
+                'timings': {'exploration': 8.0, 'generation': 12.0, 'compilation': 15.0}
+            },
+            {
+                'iteration': 2,
+                'phase': 'SHADER_COMPILATION',
+                'success': False,
+                'retry_count': 3,
+                'total_time': 68.0,
+                'timings': {'exploration': 10.0, 'generation': 15.0, 'compilation': 25.0},
+                'compilation': {'errors': ['undefined reference']}
+            },
+            {
+                'iteration': 3,
+                'phase': 'MEMORY_MANAGER',
+                'success': True,
+                'retry_count': 2,
+                'total_time': 52.0,
+                'timings': {'exploration': 9.0, 'generation': 14.0, 'compilation': 18.0}
+            }
+        ]
+        
+        iteration.learned_patterns = {
+            'SHADER_COMPILATION': {
+                'successes': 1,
+                'total_attempts': 2,
+                'avg_retries': 2.0,
+                'avg_time': 56.5,
+                'common_approaches': []
+            },
+            'MEMORY_MANAGER': {
+                'successes': 1,
+                'total_attempts': 1,
+                'avg_retries': 2.0,
+                'avg_time': 52.0,
+                'common_approaches': []
+            }
+        }
+        
+        # Get analytics
+        analytics = iteration.get_analytics()
+        assert analytics is not None
+        print("✓ Analytics engine created")
+        
+        # Test performance summary
+        summary = analytics.get_performance_summary()
+        assert 'total_iterations' in summary
+        assert 'success_rate' in summary
+        assert summary['total_iterations'] == 3
+        print(f"✓ Performance summary generated")
+        print(f"  Total iterations: {summary['total_iterations']}")
+        print(f"  Success rate: {summary['success_rate']*100:.0f}%")
+        
+        # Test phase analysis
+        phase_analysis = analytics.get_phase_analysis('SHADER_COMPILATION')
+        assert 'success_rate' in phase_analysis
+        assert 'trend' in phase_analysis
+        print(f"✓ Phase analysis generated")
+        
+        # Test recommendations
+        recommendations = analytics.get_recommendations()
+        assert len(recommendations) > 0
+        print(f"✓ Recommendations generated: {len(recommendations)}")
+        
+        # Test report generation
+        report = iteration.generate_analytics_report()
+        assert len(report) > 0
+        assert 'Performance Summary' in report
+        assert 'Phase Analysis' in report
+        assert 'Recommendations' in report
+        print(f"✓ Analytics report generated ({len(report)} chars)")
+        
+        return True
+
+
 def run_all_tests():
     """Run all tests"""
     print("\n" + "="*60)
@@ -582,6 +858,10 @@ def run_all_tests():
         ("Adaptive Retries", test_adaptive_retries),
         ("Iteration History", test_iteration_history),
         ("State Save/Load", test_iteration_state_save_load),
+        ("Pattern Recommendations", test_pattern_recommendations),
+        ("Checkpoint Diff", test_checkpoint_diff),
+        ("Pattern Export/Import", test_pattern_export_import),
+        ("Analytics", test_analytics),
     ]
     
     passed = 0

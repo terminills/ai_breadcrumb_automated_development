@@ -538,3 +538,97 @@ class SessionManager:
                 logger.warning(f"Could not read checkpoint {checkpoint_file}: {e}")
         
         return sorted(checkpoints, key=lambda x: x['time'], reverse=True)
+    
+    def compare_checkpoints(self, checkpoint1_path: str, checkpoint2_path: str) -> Dict[str, Any]:
+        """
+        Compare two checkpoints and show differences
+        
+        Args:
+            checkpoint1_path: Path to first checkpoint
+            checkpoint2_path: Path to second checkpoint
+            
+        Returns:
+            Dictionary with comparison results including:
+            - added_keys: Keys added in checkpoint2
+            - removed_keys: Keys removed from checkpoint1
+            - changed_values: Values that changed between checkpoints
+            - iteration_context_diff: Differences in iteration context
+            - summary: Human-readable summary
+        """
+        try:
+            with open(checkpoint1_path, 'r') as f:
+                cp1 = json.load(f)
+            with open(checkpoint2_path, 'r') as f:
+                cp2 = json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load checkpoints for comparison: {e}")
+            return {'error': str(e)}
+        
+        diff = {
+            'checkpoint1': checkpoint1_path,
+            'checkpoint2': checkpoint2_path,
+            'added_keys': [],
+            'removed_keys': [],
+            'changed_values': [],
+            'iteration_context_diff': {},
+            'summary': []
+        }
+        
+        # Compare session data
+        cp1_session = cp1.get('session', {})
+        cp2_session = cp2.get('session', {})
+        
+        # Find added/removed keys
+        cp1_keys = set(cp1_session.keys())
+        cp2_keys = set(cp2_session.keys())
+        
+        diff['added_keys'] = list(cp2_keys - cp1_keys)
+        diff['removed_keys'] = list(cp1_keys - cp2_keys)
+        
+        # Find changed values
+        for key in cp1_keys & cp2_keys:
+            if cp1_session[key] != cp2_session[key]:
+                diff['changed_values'].append({
+                    'key': key,
+                    'old_value': cp1_session[key],
+                    'new_value': cp2_session[key]
+                })
+        
+        # Compare iteration contexts
+        cp1_context = cp1.get('iteration_context', {})
+        cp2_context = cp2.get('iteration_context', {})
+        
+        for key in set(list(cp1_context.keys()) + list(cp2_context.keys())):
+            old_val = cp1_context.get(key)
+            new_val = cp2_context.get(key)
+            
+            if old_val != new_val:
+                diff['iteration_context_diff'][key] = {
+                    'old': old_val,
+                    'new': new_val
+                }
+        
+        # Generate summary
+        cp1_name = cp1.get('checkpoint_name', 'checkpoint1')
+        cp2_name = cp2.get('checkpoint_name', 'checkpoint2')
+        
+        diff['summary'].append(f"Comparing {cp1_name} → {cp2_name}")
+        
+        if diff['added_keys']:
+            diff['summary'].append(f"Added {len(diff['added_keys'])} keys: {', '.join(diff['added_keys'])}")
+        
+        if diff['removed_keys']:
+            diff['summary'].append(f"Removed {len(diff['removed_keys'])} keys: {', '.join(diff['removed_keys'])}")
+        
+        if diff['changed_values']:
+            diff['summary'].append(f"Changed {len(diff['changed_values'])} values")
+            for change in diff['changed_values'][:3]:  # Show first 3
+                diff['summary'].append(f"  - {change['key']}: {change['old_value']} → {change['new_value']}")
+        
+        if diff['iteration_context_diff']:
+            diff['summary'].append(f"Iteration context changes: {len(diff['iteration_context_diff'])} items")
+        
+        if not any([diff['added_keys'], diff['removed_keys'], diff['changed_values'], diff['iteration_context_diff']]):
+            diff['summary'].append("No differences found - checkpoints are identical")
+        
+        return diff

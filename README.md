@@ -114,11 +114,16 @@ Comprehensive examples demonstrating the complete AI development lifecycle from 
 - 🚀 **Pattern Learning**: Automatically learns from successful iterations
 - 🚀 **Iteration History**: Track and analyze performance across iterations
 - 🚀 **State Persistence**: Full recovery from interruptions
+- 🎯 **Pattern Recommendations**: AI-suggested approaches based on learned patterns
+- 📊 **Checkpoint Diff**: Compare checkpoints to see what changed
+- 📦 **Pattern Export/Import**: Share learned patterns between projects
+- 📈 **Enhanced Analytics**: Comprehensive performance analysis and reporting
 
 **Documentation**: 
 - [Main Guide](docs/COPILOT_STYLE_ITERATION.md) - Complete system documentation
 - [Enhancements](docs/ITERATION_ENHANCEMENTS.md) - Enhanced features and capabilities
 - [Latest Features](docs/COPILOT_ENHANCEMENTS.md) - New checkpoint, adaptive retry, and learning features
+- [Advanced Features](docs/ADVANCED_FEATURES.md) - Pattern recommendations, checkpoint diff, analytics, and pattern sharing
 - [Quick Reference](docs/QUICKREF_ITERATION.md) - Common tasks and commands
 
 **Quick Start:**
