@@ -4,11 +4,11 @@ Comprehensive System Diagnostics for AROS-Cognito
 Checks PyTorch, CUDA, ROCm, models, and all dependencies with detailed version info
 """
 
-import sys
+import importlib
 import os
 import platform
 import subprocess
-import importlib
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
