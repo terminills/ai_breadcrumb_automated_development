@@ -7,42 +7,43 @@ The AROS-Cognito system uses two AI models for intelligent code generation and a
 1. **CodeGen** - For code generation (Salesforce/codegen-350M-mono, ~350MB)
 2. **LLaMA-2** - For reasoning and exploration (meta-llama/Llama-2-7b-chat-hf, ~13GB)
 
-## Mock Model Fallback
+## Important: Models Are Required
 
-**Important:** The system includes a mock model fallback feature. This means:
+**The system will NOT work without AI models installed.** When models are missing, you'll see clear error messages with installation instructions.
 
-- ✅ The system works even without downloading AI models
-- ✅ All iteration loops and sessions will run successfully
-- ✅ Mock AI provides template-based responses for testing
-- ⚠️ For actual intelligent AI responses, you need to download real models
+### What Happens Without Models
+
+When you try to run the system without models, you'll get a helpful error message like:
+
+```
+╔══════════════════════════════════════════════════════════════════╗
+║  AI MODEL NOT FOUND                                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Failed to load codegen model: ...
+
+PROBLEM:
+  The AI model files are not downloaded.
+
+SOLUTION:
+  Download the required models using:
+  
+  $ python3 scripts/download_models.py --codegen
+```
+
+**This is intentional.** The system tells you exactly what's wrong and how to fix it.
 
 ## Installation Options
 
-### Option 1: Use Mock Models (Default)
-
-The system automatically uses mock models if real models aren't available. No action needed!
-
-```bash
-# Just run the system - it will use mocks automatically
-./scripts/run_copilot_iteration.sh
-```
-
-### Option 2: Install CodeGen Only (Lightweight)
+### Option 1: Install CodeGen Only (Lightweight)
 
 For basic code generation with a small model (~350MB):
 
 ```bash
-python3 << 'EOF'
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-print("Downloading CodeGen model (~350MB)...")
-tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen-350M-mono")
-model = AutoModelForCausalLM.from_pretrained("Salesforce/codegen-350M-mono")
-print("✓ CodeGen model downloaded successfully!")
-EOF
+python3 scripts/download_models.py --codegen
 ```
 
-### Option 3: Install Full AI Stack (Recommended)
+### Option 2: Install Full AI Stack (Recommended)
 
 For complete AI capabilities including intelligent reasoning:
 
@@ -58,41 +59,29 @@ For complete AI capabilities including intelligent reasoning:
 #### Step 2: Download Models
 
 ```bash
-# Set your HuggingFace token
-export HF_TOKEN='your_token_here'
-
-# Download CodeGen (small model, ~350MB)
-python3 << 'EOF'
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-print("Downloading CodeGen model (~350MB)...")
-tokenizer = AutoTokenizer.from_pretrained("Salesforce/codegen-350M-mono")
-model = AutoModelForCausalLM.from_pretrained("Salesforce/codegen-350M-mono")
-print("✓ CodeGen downloaded!")
-EOF
-
-# Download LLaMA-2 (large model, ~13GB - requires token)
-python3 << 'EOF'
-import os
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
-token = os.environ.get('HF_TOKEN')
-if not token:
-    print("Error: HF_TOKEN not set")
-    exit(1)
-
-print("Downloading LLaMA-2 model (~13GB - this may take a while)...")
-tokenizer = AutoTokenizer.from_pretrained(
-    "meta-llama/Llama-2-7b-chat-hf",
-    use_auth_token=token
-)
-model = AutoModelForCausalLM.from_pretrained(
-    "meta-llama/Llama-2-7b-chat-hf",
-    use_auth_token=token
-)
-print("✓ LLaMA-2 downloaded!")
-EOF
+# Download all models
+python3 scripts/download_models.py --all --token YOUR_HF_TOKEN
 ```
+
+### Option 3: Testing Mode (Mock Models)
+
+For testing the system without downloading models, you can use mock mode:
+
+```bash
+# Use mock models explicitly (template-based responses only)
+python3 src/copilot_iteration.py --use-mock --project test
+
+# Or in Python code:
+loader = LocalModelLoader()
+model = loader.load_model('codegen', use_mock=True)
+```
+
+**Note:** Mock mode only provides template-based responses. It's useful for:
+- Testing system logic
+- Developing new features
+- Running in CI/CD pipelines
+
+**It is NOT a replacement for real AI models.**
 
 ## GPU Acceleration (Optional)
 

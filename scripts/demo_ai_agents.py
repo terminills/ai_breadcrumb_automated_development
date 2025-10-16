@@ -21,6 +21,7 @@ def demo_session():
     """Demonstrate a working session with AI agents"""
     print("\n" + "="*70)
     print("  DEMO: Interactive Session with AI Agents")
+    print("  (Using Mock Models for Demonstration)")
     print("="*70)
     
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -41,6 +42,12 @@ void demo_function() {
         
         print("\n1. Initializing session manager...")
         loader = LocalModelLoader()
+        
+        # Explicitly load mock models for demo
+        print("   Loading models in mock mode for demonstration...")
+        loader.load_model('llm', use_mock=True)
+        loader.load_model('codegen', use_mock=True)
+        
         session = SessionManager(
             model_loader=loader,
             aros_path=str(aros_path),
@@ -90,6 +97,8 @@ void demo_function() {
         
         print("\n" + "="*70)
         print("  ✓ DEMO COMPLETE: Session successfully triggered all AI agents")
+        print("  Note: This used MOCK models for demonstration")
+        print("  For real AI: python3 scripts/download_models.py --all")
         print("="*70)
 
 
@@ -97,6 +106,7 @@ def demo_iteration():
     """Demonstrate a working iteration loop with AI agents"""
     print("\n" + "="*70)
     print("  DEMO: Iteration Loop with AI Agents")
+    print("  (Using Mock Models for Demonstration)")
     print("="*70)
     
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -122,6 +132,12 @@ void radeonsi_init() {
             max_iterations=1,
             max_retries=1
         )
+        
+        # Explicitly load mock models for demo
+        print("   Loading models in mock mode for demonstration...")
+        iteration.model_loader.load_model('llm', use_mock=True)
+        iteration.model_loader.load_model('codegen', use_mock=True)
+        
         print("   ✓ Iteration system ready")
         
         print("\n2. Finding tasks from breadcrumbs...")
@@ -153,6 +169,8 @@ void radeonsi_init() {
         
         print("\n" + "="*70)
         print("  ✓ DEMO COMPLETE: Iteration successfully triggered all AI agents")
+        print("  Note: This used MOCK models for demonstration")
+        print("  For real AI: python3 scripts/download_models.py --all")
         print("="*70)
 
 
@@ -164,34 +182,44 @@ def show_model_status():
     
     loader = LocalModelLoader()
     
-    print("\nAttempting to load models...")
+    print("\nChecking model availability...")
     
     # Try to load codegen
-    codegen = loader.load_model('codegen', use_mock_on_error=True)
-    print(f"\nCodeGen Model:")
-    print(f"  Type: {type(codegen).__name__}")
-    if 'Mock' in type(codegen).__name__:
-        print(f"  Status: Using MOCK model (real model not installed)")
-        print(f"  Note: Install with: python3 scripts/download_models.py --codegen")
-    else:
-        print(f"  Status: Using REAL AI model")
+    try:
+        print("\nAttempting to load CodeGen model...")
+        codegen = loader.load_model('codegen', use_mock=False)
+        print(f"✓ CodeGen Model: REAL AI loaded successfully")
+        print(f"  Type: {type(codegen).__name__}")
+    except (ImportError, RuntimeError) as e:
+        print(f"✗ CodeGen Model: NOT AVAILABLE")
+        print(f"  Error type: {type(e).__name__}")
+        if "DEPENDENCY ERROR" in str(e):
+            print(f"  Issue: Missing dependencies (torch/transformers)")
+        elif "NOT FOUND" in str(e):
+            print(f"  Issue: Model files not downloaded")
+        print(f"  Solution: See error message above for instructions")
     
     # Try to load LLM
-    llm = loader.load_model('llm', use_mock_on_error=True)
-    print(f"\nLLM Model:")
-    print(f"  Type: {type(llm).__name__}")
-    if 'Mock' in type(llm).__name__:
-        print(f"  Status: Using MOCK model (real model not installed)")
-        print(f"  Note: Install with: python3 scripts/download_models.py --llama")
-    else:
-        print(f"  Status: Using REAL AI model")
+    try:
+        print("\nAttempting to load LLM model...")
+        llm = loader.load_model('llm', use_mock=False)
+        print(f"✓ LLM Model: REAL AI loaded successfully")
+        print(f"  Type: {type(llm).__name__}")
+    except (ImportError, RuntimeError) as e:
+        print(f"✗ LLM Model: NOT AVAILABLE")
+        print(f"  Error type: {type(e).__name__}")
+        if "DEPENDENCY ERROR" in str(e):
+            print(f"  Issue: Missing dependencies (torch/transformers)")
+        elif "NOT FOUND" in str(e):
+            print(f"  Issue: Model files not downloaded")
+        print(f"  Solution: See error message above for instructions")
     
     print("\n" + "="*70)
-    print("\nImportant:")
-    print("  • Mock models allow the system to run without downloading AI models")
-    print("  • Mock models provide template-based responses for testing")
-    print("  • For intelligent AI responses, install real models")
-    print("  • See AI_MODEL_SETUP.md for installation instructions")
+    print("\nOptions:")
+    print("  1. Install dependencies: pip install torch transformers")
+    print("  2. Download models: python3 scripts/download_models.py --all")
+    print("  3. See setup guide: cat AI_MODEL_SETUP.md")
+    print("  4. Use mock mode for testing: add --use-mock flag")
     print("="*70)
 
 
@@ -225,26 +253,26 @@ def main():
     
     # Summary
     print("\n" + "="*70)
-    print("  SUMMARY: All AI Agents Working Correctly")
+    print("  SUMMARY: AI Agent System")
     print("="*70)
-    print("\n✓ Sessions trigger AI agents successfully")
-    print("✓ Iteration loops trigger AI agents successfully")
-    print("✓ All phases execute correctly:")
+    print("\n✓ System shows clear errors when models are missing")
+    print("✓ Error messages include installation instructions")
+    print("✓ Sessions and Iterations work when models are available")
+    print("✓ Mock mode available for testing (explicit --use-mock flag)")
+    print("\n✓ All phases execute correctly when models loaded:")
     print("   • Exploration phase ✓")
     print("   • Reasoning phase ✓")
     print("   • Generation phase ✓")
     print("   • Review phase ✓")
     print("   • Compilation phase ✓")
     print("   • Learning phase ✓")
-    print("\n✓ System works with both mock and real AI models")
-    print("✓ Bootstrap script updated with model setup instructions")
-    print("✓ ROCm 5.7.1 installation preserved")
     print("\n" + "="*70)
-    print("\nFor full AI capabilities, run:")
-    print("  python3 scripts/download_models.py --all")
-    print("\nFor more information, see:")
-    print("  • AI_MODEL_SETUP.md - Model installation guide")
-    print("  • AI_AGENT_FIX_SUMMARY.md - Fix details")
+    print("\nTo fix model issues:")
+    print("  1. Install dependencies: pip install torch transformers")
+    print("  2. Download models: python3 scripts/download_models.py --all")
+    print("  3. See setup guide: cat AI_MODEL_SETUP.md")
+    print("\nFor testing without models:")
+    print("  Use --use-mock flag (provides template responses only)")
     print("="*70 + "\n")
     
     return 0
