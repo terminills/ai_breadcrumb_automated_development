@@ -179,15 +179,15 @@ All features have been tested:
 
 ## Files Changed
 
-1. `scripts/check_system_diagnostics.py` (new) - 18KB
-2. `src/local_models/model_loader.py` - Enhanced with diagnostics
-3. `scripts/download_models.py` - Improved dependency checking
+1. `scripts/check_system_diagnostics.py` (new) - Comprehensive diagnostic script
+2. `src/local_models/model_loader.py` - Enhanced with diagnostic info method
+3. `scripts/download_models.py` - Improved dependency checking with GPU details
 4. `ui/app.py` - Added /api/diagnostics endpoint
-5. `ui/templates/index.html` - Added diagnostics modal and button
-6. `DIAGNOSTICS.md` (new) - 5KB documentation
-7. `README.md` - Added diagnostics section
-8. `scripts/test_diagnostics.sh` (new) - Test script
-9. `scripts/test_model_loader_diagnostic.py` (new) - Helper test
+5. `ui/templates/index.html` - Added diagnostics modal, button, and styles
+6. `DIAGNOSTICS.md` (new) - Complete diagnostic feature documentation
+7. `README.md` - Added diagnostics section with quick reference
+8. `scripts/test_diagnostics.sh` (new) - Test script demonstrating all features
+9. `scripts/test_model_loader_diagnostic.py` (new) - Helper test for model loader errors
 
 ## Visual Examples
 
