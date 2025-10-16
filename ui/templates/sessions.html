@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Copilot Sessions - AROS-Cognito</title>
+    <title>Development Sessions - AROS-Cognito</title>
     <style>
         * {
             margin: 0;
@@ -236,10 +236,10 @@
 <body>
     <div class="container">
         <header>
-            <h1>🤖 Copilot Development Sessions</h1>
-            <p>Interactive AI Development with Live Updates</p>
-            <div id="connectionStatus" class="connection-status disconnected">
-                ⚫ Disconnected
+            <h1>🤖 Development Sessions</h1>
+            <p>AI-Driven Development Workflow</p>
+            <div id="connectionStatus" class="connection-status connected">
+                🟢 Ready
             </div>
         </header>
         
@@ -250,7 +250,7 @@
         
         <!-- Create New Session -->
         <div class="card">
-            <h2>Create New Copilot Session</h2>
+            <h2>Create New Session</h2>
             <form id="createSessionForm">
                 <div class="form-group">
                     <label for="taskDescription">Task Description:</label>
@@ -293,72 +293,9 @@
         </div>
     </div>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js" integrity="sha512-HTENHrkQ/P0NGDFd4kgH+FEuEqjPEPRPfn2wc9Dz8t9KtOmqR5/p/A21X7wL/tyAPKgIqBIi3qwdE9DQBqDjRQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
-        // Try to load Socket.IO with graceful fallback
-        let socket = null;
-        let socketAvailable = false;
-        
-        // Check if Socket.IO is available
-        if (typeof io !== 'undefined') {
-            socket = io();
-            socketAvailable = true;
-        } else {
-            console.log('Socket.IO not available, using polling mode');
-        }
-        
-        // Connection status
+        // Simple polling-based updates (no WebSocket needed)
         const statusElement = document.getElementById('connectionStatus');
-        
-        if (socketAvailable) {
-            socket.on('connect', () => {
-                console.log('Connected to server');
-                statusElement.textContent = '🟢 Connected';
-                statusElement.className = 'connection-status connected';
-                addLogEntry('Connected to server', 'success');
-                
-                // Subscribe to updates
-                socket.emit('subscribe_iteration');
-            });
-            
-            socket.on('disconnect', () => {
-                console.log('Disconnected from server');
-                statusElement.textContent = '⚫ Disconnected';
-                statusElement.className = 'connection-status disconnected';
-                addLogEntry('Disconnected from server', 'error');
-            });
-            
-            socket.on('connected', (data) => {
-                console.log('Server confirmed connection:', data);
-                addLogEntry(data.message, 'success');
-            });
-            
-            socket.on('subscribed', (data) => {
-                console.log('Subscribed to channel:', data.channel);
-                addLogEntry(`Subscribed to ${data.channel} updates`, 'success');
-            });
-            
-            socket.on('iteration_update', (data) => {
-                console.log('Iteration update:', data);
-                addLogEntry(`Iteration ${data.current_iteration}/${data.total_iterations}: ${data.current_phase}`, 'success');
-                updateActiveSessions();
-            });
-            
-            socket.on('copilot_update', (data) => {
-                console.log('Copilot update:', data);
-                if (data.phase) {
-                    addLogEntry(`Session ${data.session_id}: ${data.phase} - ${data.status}`, 'success');
-                } else if (data.status === 'completed') {
-                    addLogEntry(`Session ${data.session_id}: Completed!`, 'success');
-                }
-                updateActiveSessions();
-            });
-        } else {
-            // Polling mode
-            statusElement.textContent = '🟡 Polling Mode (WebSocket unavailable)';
-            statusElement.className = 'connection-status connected';
-            addLogEntry('Using polling mode (WebSocket unavailable)', 'success');
-        }
         
         // Add log entry
         function addLogEntry(message, type = '') {
@@ -374,6 +311,8 @@
             }
         }
         
+        addLogEntry('Monitoring system ready', 'success');
+        
         // Create session form
         document.getElementById('createSessionForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -385,7 +324,7 @@
             };
             
             try {
-                const response = await fetch('/api/copilot/sessions', {
+                const response = await fetch('/api/sessions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -398,9 +337,7 @@
                 if (data.status === 'success') {
                     addLogEntry(`Created session: ${data.session_id}`, 'success');
                     document.getElementById('createSessionForm').reset();
-                    
-                    // Start the session
-                    startSession(data.session_id);
+                    updateActiveSessions();
                 } else {
                     addLogEntry(`Failed to create session: ${data.message}`, 'error');
                 }
@@ -409,30 +346,10 @@
             }
         });
         
-        // Start session
-        async function startSession(sessionId) {
-            try {
-                const response = await fetch(`/api/copilot/sessions/${sessionId}/start`, {
-                    method: 'POST'
-                });
-                
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    addLogEntry(`Started session: ${sessionId}`, 'success');
-                    updateActiveSessions();
-                } else {
-                    addLogEntry(`Failed to start session: ${data.message}`, 'error');
-                }
-            } catch (error) {
-                addLogEntry(`Error starting session: ${error.message}`, 'error');
-            }
-        }
-        
         // Stop session
         async function stopSession(sessionId) {
             try {
-                const response = await fetch(`/api/copilot/sessions/${sessionId}/stop`, {
+                const response = await fetch(`/api/sessions/${sessionId}/stop`, {
                     method: 'POST'
                 });
                 
@@ -447,32 +364,10 @@
             }
         }
         
-        // Delete session
-        async function deleteSession(sessionId) {
-            if (!confirm(`Delete session ${sessionId}?`)) {
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/copilot/sessions/${sessionId}`, {
-                    method: 'DELETE'
-                });
-                
-                const data = await response.json();
-                
-                if (data.status === 'success') {
-                    addLogEntry(`Deleted session: ${sessionId}`, 'success');
-                    updateActiveSessions();
-                }
-            } catch (error) {
-                addLogEntry(`Error deleting session: ${error.message}`, 'error');
-            }
-        }
-        
         // Update active sessions list
         async function updateActiveSessions() {
             try {
-                const response = await fetch('/api/copilot/sessions');
+                const response = await fetch('/api/sessions');
                 const data = await response.json();
                 
                 const sessionsList = document.getElementById('sessionsList');
@@ -489,18 +384,25 @@
                             <span class="session-status">${session.status}</span>
                         </div>
                         <div style="margin: 10px 0;">
-                            <strong>Task:</strong> ${session.task}
+                            <strong>Task:</strong> ${session.task || 'Development task'}
                         </div>
+                        ${session.started_at ? `
                         <div style="margin: 5px 0; opacity: 0.8;">
                             <strong>Started:</strong> ${new Date(session.started_at).toLocaleString()}
                         </div>
+                        ` : ''}
                         <div style="margin: 5px 0; opacity: 0.8;">
                             <strong>Current Phase:</strong> ${session.current_phase}
                         </div>
+                        ${session.current_iteration ? `
+                        <div style="margin: 5px 0; opacity: 0.8;">
+                            <strong>Progress:</strong> ${session.current_iteration}/${session.total_iterations} iterations
+                        </div>
+                        ` : ''}
                         <div style="margin-top: 15px;">
                             ${session.status === 'running' ? 
                                 `<button class="btn btn-danger" onclick="stopSession('${session.id}')">Stop</button>` :
-                                `<button class="btn btn-danger" onclick="deleteSession('${session.id}')">Delete</button>`
+                                ''
                             }
                         </div>
                     </div>
@@ -513,8 +415,8 @@
         // Initial load
         updateActiveSessions();
         
-        // Auto-refresh every 5 seconds
-        setInterval(updateActiveSessions, 5000);
+        // Auto-refresh every 3 seconds
+        setInterval(updateActiveSessions, 3000);
     </script>
 </body>
 </html>
