@@ -135,26 +135,35 @@ class DiagnosticChecker:
     
     def check_required_packages(self) -> Dict:
         """Check all required Python packages"""
-        required = [
-            'flask', 'torch', 'transformers', 'GitPython', 'psutil', 
-            'colorama', 'pyyaml', 'tqdm', 'pyarrow', 'datasets'
-        ]
+        # Map package names to their import names
+        required = {
+            'flask': 'flask',
+            'torch': 'torch',
+            'transformers': 'transformers',
+            'GitPython': 'git',
+            'psutil': 'psutil',
+            'colorama': 'colorama',
+            'pyyaml': 'yaml',
+            'tqdm': 'tqdm',
+            'pyarrow': 'pyarrow',
+            'datasets': 'datasets'
+        }
         
         results = {}
-        for package in required:
+        for package_name, module_name in required.items():
             try:
-                mod = __import__(package)
+                mod = __import__(module_name)
                 version = getattr(mod, '__version__', 'unknown')
-                results[package] = {
+                results[package_name] = {
                     'installed': True,
                     'version': version
                 }
             except ImportError:
-                results[package] = {
+                results[package_name] = {
                     'installed': False,
                     'error': 'Not installed'
                 }
-                self.warnings.append(f"Package '{package}' not installed")
+                self.warnings.append(f"Package '{package_name}' not installed")
         
         return results
     
