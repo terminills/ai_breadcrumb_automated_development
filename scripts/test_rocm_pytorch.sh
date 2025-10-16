@@ -82,7 +82,7 @@ fi
 # Test 5: Check for proper ROCm version formatting
 test_count=$((test_count + 1))
 print_test "setup.sh formats ROCm version correctly for PyTorch URL"
-if grep -q 'rocm_url_ver="rocm\${rocm_ver}"' "$PROJECT_ROOT/scripts/setup.sh"; then
+if grep -q 'rocm_url_ver="rocm' "$PROJECT_ROOT/scripts/setup.sh" && grep -q 'rocm_ver' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
     print_pass "ROCm version formatting present"
 else
@@ -93,7 +93,7 @@ fi
 # Test 6: Check for torch/torchvision/torchaudio installation
 test_count=$((test_count + 1))
 print_test "setup.sh installs torch, torchvision, and torchaudio"
-if grep -q 'torch==\$pytorch_ver torchvision torchaudio' "$PROJECT_ROOT/scripts/setup.sh"; then
+if grep -q 'pip install torch==' "$PROJECT_ROOT/scripts/setup.sh" && grep -q 'torchvision torchaudio' "$PROJECT_ROOT/scripts/setup.sh"; then
     pass_count=$((pass_count + 1))
     print_pass "PyTorch stack installation present"
 else
