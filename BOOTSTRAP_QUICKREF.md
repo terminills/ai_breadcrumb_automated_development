@@ -4,48 +4,54 @@
 
 ```bash
 # Run as regular user (not root)
-# You'll be prompted for sudo password when needed
 ./scripts/bootstrap_ubuntu.sh
 ```
 
+**Interactive Setup**: The script will ask once if you want to install system packages.
+
 ## What Gets Set Up
 
-### 1. System Dependencies ✓
-- Build tools (gcc, make, etc.) - installed via sudo
+### 1. Permission Check ✓
+- Asks once about system package installation
+- Choose Yes for sudo operations or No to skip
+
+### 2. System Dependencies ✓
+- Build tools (gcc, make, etc.) - installed via sudo (if requested)
 - Python 3 and pip
 - Python venv support
 - Git
 - Required libraries
 
-### 2. Python Virtual Environment ✓
-- Creates venv in `venv/` directory
+### 3. Python Virtual Environment ✓
+- Creates venv in `~/cognito-envs/ai_breadcrumb/`
 - Isolates dependencies from system Python
 - Automatically activated during setup
+- Configurable via `VENV_BASE` environment variable
 
-### 3. ROCm Validation ✓
+### 4. ROCm Validation ✓
 - Detects ROCm 5.7.1
 - Validates AMD GPU (MI25, MI60, etc.)
 - Falls back to CPU mode if not available
-- ROCm installed via sudo if needed
+- ROCm installed via sudo if needed (and if user chose system packages)
 
-### 4. GitHub Integration ✓
+### 5. GitHub Integration ✓
 - Prompts for GitHub token (first run only)
 - Saves token securely to `~/.aros_github_token`
 - Clones `terminills/AROS-OLD` (private)
 - Configures `aros-development-team/AROS` as upstream
 
-### 5. Database Schema ✓
+### 6. Database Schema ✓
 - Initializes JSON databases
 - Creates schema version tracking
 - Sets up automatic backups
 - Validates on every run
 
-### 6. Python Dependencies ✓
+### 7. Python Dependencies ✓
 - Installs PyTorch 2.3.1+ (or 2.0.1 for ROCm 5.7.1)
 - Installs all dependencies in venv
 - Validates installation
 
-### 7. Network UI ✓
+### 8. Network UI ✓
 - Configures UI to bind on `0.0.0.0:5000`
 - Accessible from local network
 - Works with venv setup
@@ -59,8 +65,15 @@
 
 ### Manual Activation
 ```bash
-source venv/bin/activate
+source ~/cognito-envs/ai_breadcrumb/bin/activate
 cd ui && python app.py
+```
+
+### Environment Variables
+```bash
+# Use custom venv location
+VENV_BASE=/custom/path ./scripts/bootstrap_ubuntu.sh
+VENV_BASE=/custom/path ./start_ui.sh
 ```
 
 Access at:

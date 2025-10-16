@@ -18,26 +18,30 @@ The fastest way to get started is with the automated bootstrap script:
 
 ```bash
 # Run as a regular user (not root)
-# You'll be prompted for sudo password when needed
 ./scripts/bootstrap_ubuntu.sh
 ```
+
+The script will ask you **once** if you want to install/upgrade system packages:
+- Choose **Yes** if you want the script to handle system dependencies (requires sudo)
+- Choose **No** if dependencies are already installed (skips sudo operations)
 
 ### What the Bootstrap Script Does
 
 1. **System Check**: Validates Ubuntu 22.04.3 installation
-2. **Dependencies**: Installs all required system packages via sudo (build tools, Python, etc.)
-3. **Virtual Environment**: Creates and configures a Python venv in `venv/` directory
-4. **ROCm Management**: 
+2. **Permission Check**: Asks once about system package installation (sudo)
+3. **Dependencies**: Installs required system packages via sudo (if requested)
+4. **Virtual Environment**: Creates Python venv in `~/cognito-envs/ai_breadcrumb/`
+5. **ROCm Management**: 
    - Checks for existing ROCm installation
-   - On Ubuntu 22.04.3: Offers to install ROCm 5.7.1 if not present (via sudo)
+   - On Ubuntu 22.04.3: Offers to install ROCm 5.7.1 if not present (requires sudo)
    - Handles DKMS compatibility issues automatically
    - Validates AMD GPU availability
-5. **GitHub Token**: Prompts for and securely stores your GitHub token
-6. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
-7. **Database Schema**: Initializes and migrates database schema
-8. **PyTorch**: Installs PyTorch 2.3.1+ in venv (or 2.0.1 for ROCm 5.7.1 compatibility)
-9. **Network UI**: Configures UI for local network access
-10. **Verification**: Tests the complete installation
+6. **GitHub Token**: Prompts for and securely stores your GitHub token
+7. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
+8. **Database Schema**: Initializes and migrates database schema
+9. **PyTorch**: Installs PyTorch 2.3.1+ in venv (or 2.0.1 for ROCm 5.7.1 compatibility)
+10. **Network UI**: Configures UI for local network access
+11. **Verification**: Tests the complete installation
 
 ### First Run
 
@@ -78,8 +82,20 @@ Once bootstrap completes, you can:
 ./start_ui.sh
 
 # Or manually with venv
-source venv/bin/activate
+source ~/cognito-envs/ai_breadcrumb/bin/activate
 cd ui && python app.py
+```
+
+### Custom Virtual Environment Location
+
+You can customize where the virtual environment is created:
+
+```bash
+# Use a custom location
+VENV_BASE=/path/to/my/envs ./scripts/bootstrap_ubuntu.sh
+
+# Then start UI with the same variable
+VENV_BASE=/path/to/my/envs ./start_ui.sh
 ```
 
 Access the UI:

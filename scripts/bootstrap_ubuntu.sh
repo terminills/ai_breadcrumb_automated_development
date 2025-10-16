@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Ubuntu 22.04.3 Bootstrap Script for AROS-Cognito AI Development System
 # This script provides a complete setup from scratch including:
 # - System dependency installation
@@ -15,13 +15,20 @@
 # amdgpu driver. The kernel module may report version 1.1, but ROCm 5.7.1
 # userspace tools and libraries are correctly installed and functional.
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="$PROJECT_ROOT/config/config.json"
 TOKEN_FILE="$HOME/.aros_github_token"
-VENV_DIR="$PROJECT_ROOT/venv"
+
+# Virtual environment configuration
+# Can be overridden by setting VENV_BASE environment variable
+VENV_BASE="${VENV_BASE:-$HOME/cognito-envs}"
+VENV_DIR="$VENV_BASE/ai_breadcrumb"
+
+# Flag to track if user wants to install system packages
+INSTALL_SYSTEM_PACKAGES=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -59,6 +66,31 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to check if user wants to install system packages
+ask_system_packages() {
+    if (( EUID == 0 )); then
+        # Already running as root
+        INSTALL_SYSTEM_PACKAGES=true
+        print_info "Running as root - system packages will be installed automatically"
+    else
+        echo ""
+        print_info "This script can install/upgrade system packages using sudo."
+        print_info "System packages include: build tools, Python, git, and optional ROCm support"
+        echo ""
+        read -rp "Install/upgrade system packages? [y/N]: " syschoice
+        echo ""
+        if [[ $syschoice =~ ^[Yy]$ ]]; then
+            INSTALL_SYSTEM_PACKAGES=true
+            print_success "System packages will be installed (you may be prompted for sudo password)"
+        else
+            INSTALL_SYSTEM_PACKAGES=false
+            print_info "Skipping system package installation"
+            print_warning "Note: Ensure required packages are already installed:"
+            print_warning "  build-essential, git, curl, wget, python3, python3-pip, python3-venv"
+        fi
+    fi
+}
+
 # Function to check Ubuntu version
 check_ubuntu_version() {
     print_info "Checking Ubuntu version..."
@@ -92,10 +124,30 @@ check_ubuntu_version() {
 
 # Function to install system dependencies
 install_system_dependencies() {
+    if [ "$INSTALL_SYSTEM_PACKAGES" = false ]; then
+        print_info "Skipping system package installation (as requested)"
+        print_info "Verifying required packages are available..."
+        
+        # Check for essential packages
+        local missing_packages=()
+        for cmd in gcc git curl wget python3 pip3; do
+            if ! command_exists "$cmd"; then
+                missing_packages+=("$cmd")
+            fi
+        done
+        
+        if [ ${#missing_packages[@]} -gt 0 ]; then
+            print_error "Missing required packages: ${missing_packages[*]}"
+            print_error "Please install them manually or re-run with system package installation enabled"
+            exit 1
+        fi
+        
+        print_success "Required packages are available"
+        return 0
+    fi
+    
     print_info "Installing system dependencies..."
     echo ""
-    
-    print_info "This step requires sudo access for system package installation"
     
     # Update package list
     print_info "Updating package lists..."
@@ -180,6 +232,12 @@ detect_rocm_version() {
 
 # Function to install ROCm 5.7.1 for Ubuntu 22.04.3
 install_rocm_5_7_1() {
+    if [ "$INSTALL_SYSTEM_PACKAGES" = false ]; then
+        print_warning "Cannot install ROCm without system package installation permission"
+        print_info "Please install ROCm manually or re-run with system package installation enabled"
+        return 1
+    fi
+    
     print_info "Installing ROCm 5.7.1 for Ubuntu 22.04.3..."
     echo ""
     
@@ -402,6 +460,12 @@ setup_python_env() {
     # Check Python version
     PYTHON_VERSION=$(python3 --version | awk '{print $2}' | cut -d'.' -f1,2)
     print_success "Python $PYTHON_VERSION detected"
+    
+    # Create base directory for virtual environments if it doesn't exist
+    if [ ! -d "$VENV_BASE" ]; then
+        print_info "Creating virtual environment base directory: $VENV_BASE"
+        mkdir -p "$VENV_BASE"
+    fi
     
     # Create virtual environment if it doesn't exist
     if [ ! -d "$VENV_DIR" ]; then
@@ -631,7 +695,8 @@ display_summary() {
     print_success "System is ready for AI development!"
     echo ""
     echo "Virtual Environment:"
-    echo "   ${GREEN}source venv/bin/activate${NC} (to activate)"
+    echo "   Location: ${BLUE}$VENV_DIR${NC}"
+    echo "   Activate: ${GREEN}source $VENV_DIR/bin/activate${NC}"
     echo ""
     echo "Next Steps:"
     echo ""
@@ -669,6 +734,7 @@ display_summary() {
 # Main execution flow
 main() {
     check_ubuntu_version
+    ask_system_packages
     install_system_dependencies
     check_rocm
     get_github_token
