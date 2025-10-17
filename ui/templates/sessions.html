@@ -376,6 +376,9 @@
             }
         }
         
+        // Track last known session state to detect changes
+        let lastSessionState = {};
+        
         // Update active sessions list
         async function updateActiveSessions() {
             try {
@@ -388,6 +391,36 @@
                     sessionsList.innerHTML = '<p style="opacity: 0.6;">No active sessions.</p>';
                     return;
                 }
+                
+                // Check for changes and log them
+                data.sessions.forEach(session => {
+                    const sessionId = session.id;
+                    const lastState = lastSessionState[sessionId];
+                    
+                    if (!lastState) {
+                        // New session detected
+                        lastSessionState[sessionId] = session;
+                    } else {
+                        // Check for phase change
+                        if (lastState.current_phase !== session.current_phase) {
+                            addLogEntry(`Session ${sessionId}: Phase changed to ${session.current_phase}`, 'success');
+                        }
+                        
+                        // Check for iteration change
+                        if (lastState.current_iteration !== session.current_iteration) {
+                            addLogEntry(`Session ${sessionId}: Iteration ${session.current_iteration}/${session.total_iterations}`, '');
+                        }
+                        
+                        // Check for status change
+                        if (lastState.status !== session.status) {
+                            const logType = session.status === 'completed' ? 'success' : session.status === 'error' ? 'error' : '';
+                            addLogEntry(`Session ${sessionId}: Status changed to ${session.status}`, logType);
+                        }
+                        
+                        // Update last state
+                        lastSessionState[sessionId] = session;
+                    }
+                });
                 
                 sessionsList.innerHTML = data.sessions.map(session => `
                     <div class="session-item ${session.status}">
@@ -424,11 +457,40 @@
             }
         }
         
+        // Update iteration status for detailed progress
+        async function updateIterationStatus() {
+            try {
+                const response = await fetch('/api/iteration/status');
+                const status = await response.json();
+                
+                // Only update if there's an active iteration
+                if (status.status === 'running' && status.session_id) {
+                    // Check phase progress
+                    const phases = status.phase_progress || {};
+                    for (const [phaseName, phaseStatus] of Object.entries(phases)) {
+                        const stateKey = `${status.session_id}_phase_${phaseName}`;
+                        if (!lastSessionState[stateKey] && phaseStatus === 'running') {
+                            addLogEntry(`Session ${status.session_id}: Starting ${phaseName} phase`, '');
+                            lastSessionState[stateKey] = phaseStatus;
+                        } else if (lastSessionState[stateKey] === 'running' && phaseStatus === 'completed') {
+                            addLogEntry(`Session ${status.session_id}: Completed ${phaseName} phase`, 'success');
+                            lastSessionState[stateKey] = phaseStatus;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating iteration status:', error);
+            }
+        }
+        
         // Initial load
         updateActiveSessions();
         
         // Auto-refresh every 3 seconds
-        setInterval(updateActiveSessions, 3000);
+        setInterval(() => {
+            updateActiveSessions();
+            updateIterationStatus();
+        }, 3000);
     </script>
 </body>
 </html>
