@@ -379,6 +379,7 @@
         // Track last known session state to detect changes
         let lastSessionState = {};
         let hasActiveSessions = false;
+        let isInitialLoad = true;
         
         // Update active sessions list
         async function updateActiveSessions() {
@@ -405,8 +406,8 @@
                     const lastState = lastSessionState[sessionId];
                     
                     if (!lastState) {
-                        // New session detected - log it if not just page load
-                        if (Object.keys(lastSessionState).length > 0) {
+                        // New session detected - log it if not initial page load
+                        if (!isInitialLoad) {
                             addLogEntry(`Session ${sessionId}: Created`, 'success');
                         }
                         lastSessionState[sessionId] = session;
@@ -462,6 +463,9 @@
                         </div>
                     </div>
                 `).join('');
+                
+                // Mark that initial load is complete
+                isInitialLoad = false;
             } catch (error) {
                 console.error('Error updating sessions:', error);
             }
@@ -486,15 +490,26 @@
                         const stateKey = `${status.session_id}_phase_${phaseName}`;
                         const prevPhaseStatus = lastSessionState[stateKey];
                         
-                        // Log phase start
+                        // Log phase start (explicit running state)
                         if (!prevPhaseStatus && phaseStatus === 'running') {
                             addLogEntry(`Session ${status.session_id}: Starting ${phaseName} phase`, '');
                             lastSessionState[stateKey] = phaseStatus;
                         }
-                        // Log phase completion (check both running->completed and undefined->completed transitions)
-                        else if (phaseStatus === 'completed' && prevPhaseStatus !== 'completed') {
-                            addLogEntry(`Session ${status.session_id}: Completed ${phaseName} phase`, 'success');
-                            lastSessionState[stateKey] = phaseStatus;
+                        // Log phase completion (only if we saw it running first, or transitioned from running)
+                        else if (phaseStatus === 'completed') {
+                            if (prevPhaseStatus === 'running') {
+                                // Normal transition: running -> completed
+                                addLogEntry(`Session ${status.session_id}: Completed ${phaseName} phase`, 'success');
+                                lastSessionState[stateKey] = phaseStatus;
+                            } else if (prevPhaseStatus === undefined) {
+                                // Phase completed between polls - we missed the running state
+                                // Still log it since it completed during this session
+                                addLogEntry(`Session ${status.session_id}: Completed ${phaseName} phase`, 'success');
+                                lastSessionState[stateKey] = phaseStatus;
+                            } else if (prevPhaseStatus !== 'completed') {
+                                // Other transition to completed (e.g., from pending)
+                                lastSessionState[stateKey] = phaseStatus;
+                            }
                         }
                         // Update state for other transitions
                         else if (prevPhaseStatus !== phaseStatus) {
