@@ -4,9 +4,10 @@
 Users may encounter errors when testing Llama models directly with the transformers `pipeline()` function. There are typically two issues:
 
 1. **Compatibility Error**: `ImportError: cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'`
-   - This is an ONNX package compatibility issue with PyTorch 2.3.1+, not a transformers issue
-   - **Fix**: `pip install --upgrade onnx` or set environment variable (see AI_MODEL_SETUP.md)
-   - See `AI_MODEL_SETUP.md` for detailed troubleshooting steps
+   - This is a PyTorch 2.3.1+ API change that requires updated transformers/accelerate packages
+   - **Fix**: Upgrade transformers>=4.40.0 and accelerate>=0.26.0, or use workarounds (see AI_MODEL_SETUP.md)
+   - Note: Upgrading ONNX alone does NOT fix this issue
+   - See `AI_MODEL_SETUP.md` for detailed troubleshooting steps including Python code workarounds
 
 2. **Parameter Naming Error**: Using `torch_dtype` instead of `dtype` with `pipeline()`
    - This is documented below
@@ -93,18 +94,26 @@ Our existing codebase already uses the correct parameters:
 ### Troubleshooting Steps
 If you encounter errors when testing Llama models:
 
-1. **First, fix ONNX compatibility issues** (if you see DiagnosticOptions error):
+1. **First, fix DiagnosticOptions compatibility error** (PyTorch 2.3.1+ API change):
    ```bash
-   # Try upgrading ONNX first
-   pip install --upgrade onnx
-   
-   # Or set environment variable to disable ONNX functionality
-   export TORCH_ONNX_EXPERIMENTAL_RUNTIME_TYPE_CHECK=0
-   
-   # Or upgrade transformers (may pull compatible dependencies)
-   pip install --upgrade transformers>=4.40.0
+   # Upgrade transformers and accelerate (most reliable fix)
+   pip install --upgrade transformers>=4.40.0 accelerate>=0.26.0
    ```
-   See `AI_MODEL_SETUP.md` for detailed solutions.
+   
+   **If that doesn't work**, use this Python workaround:
+   ```python
+   # Add at the very top of your script, before any transformers imports
+   import sys
+   from unittest.mock import MagicMock
+   sys.modules['torch.onnx._internal.exporter'] = MagicMock()
+   
+   # Now import transformers
+   from transformers import pipeline
+   ```
+   
+   See `AI_MODEL_SETUP.md` for more solutions including environment variables.
+   
+   **Note**: Upgrading ONNX alone does NOT fix this issue.
 
 2. **Then, fix parameter naming**:
    - Change `torch_dtype="auto"` to `dtype="auto"` in your `pipeline()` call

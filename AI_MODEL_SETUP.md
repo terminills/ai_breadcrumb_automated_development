@@ -188,32 +188,51 @@ pip install torch transformers
 
 ### "cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'"
 
-This error occurs when the `onnx` package is incompatible with PyTorch 2.3.1+. This is an ONNX compatibility issue, not a transformers issue.
+This error occurs when using PyTorch 2.3.1+ with incompatible versions of transformers or related packages. The issue is that PyTorch 2.3.1+ changed internal ONNX APIs that transformers relies on.
 
 **Solutions (try in order):**
 
-1. **Install/upgrade ONNX** to a compatible version:
-   ```bash
-   pip install --upgrade onnx
-   ```
-
-2. **Upgrade transformers** (which may pull in compatible dependencies):
+1. **Upgrade transformers to 4.40.0 or later** (most reliable fix):
    ```bash
    pip install --upgrade transformers>=4.40.0
    ```
 
-3. **Set environment variable** to disable ONNX functionality if not needed:
+2. **If upgrading transformers doesn't work, try upgrading accelerate**:
    ```bash
-   export TORCH_ONNX_EXPERIMENTAL_RUNTIME_TYPE_CHECK=0
-   ```
-   Then run your code.
-
-4. **Reinstall all dependencies**:
-   ```bash
-   pip install -r requirements.txt
+   pip install --upgrade accelerate>=0.26.0
    ```
 
-**Note**: If you must use PyTorch 2.3.1 (cannot downgrade), ensure you have ONNX installed and compatible. Run `pip list | grep onnx` to check if ONNX is installed.
+3. **Workaround: Disable ONNX export functionality** if not needed:
+   ```bash
+   # Set before running Python
+   export TRANSFORMERS_OFFLINE=1
+   ```
+   Or in your Python code before importing transformers:
+   ```python
+   import os
+   os.environ['TRANSFORMERS_OFFLINE'] = '1'
+   from transformers import pipeline
+   ```
+
+4. **Alternative: Use Python code workaround**:
+   ```python
+   # Add this at the very top of your script, before any transformers imports
+   import sys
+   from unittest.mock import MagicMock
+   
+   # Mock the problematic module to prevent the import error
+   sys.modules['torch.onnx._internal.exporter'] = MagicMock()
+   
+   # Now import transformers
+   from transformers import pipeline
+   ```
+
+5. **Reinstall all dependencies**:
+   ```bash
+   pip install --force-reinstall transformers>=4.40.0 accelerate>=0.26.0
+   ```
+
+**Note**: The ONNX package version (even 1.19.1) is usually not the issue. This is a PyTorch 2.3.1+ internal API change that requires updated transformers/accelerate packages. If you're stuck with older transformers versions, use the workaround in option 3 or 4.
 
 ### "Failed to load model"
 
