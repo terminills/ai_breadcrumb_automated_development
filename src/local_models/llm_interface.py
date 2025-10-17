@@ -3,9 +3,15 @@ Local LLM Interface
 Provides reasoning and exploration capabilities using local LLM
 """
 
+import sys
+from unittest.mock import MagicMock
 import logging
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+
+# Apply PyTorch 2.3.1+ workaround for DiagnosticOptions import error
+if 'torch.onnx._internal.exporter' not in sys.modules:
+    sys.modules['torch.onnx._internal.exporter'] = MagicMock()
 
 logger = logging.getLogger(__name__)
 

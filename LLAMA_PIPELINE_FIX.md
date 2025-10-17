@@ -113,7 +113,9 @@ If you encounter errors when testing Llama models:
    
    See `AI_MODEL_SETUP.md` for more solutions including environment variables.
    
-   **Note**: Upgrading ONNX alone does NOT fix this issue.
+   **Note**: 
+   - Upgrading ONNX alone does NOT fix this issue.
+   - The Python workaround is **automatically applied** in the AROS-Cognito codebase when using `src.local_models` modules.
 
 2. **Then, fix parameter naming**:
    - Change `torch_dtype="auto"` to `dtype="auto"` in your `pipeline()` call
@@ -123,11 +125,13 @@ If you encounter errors when testing Llama models:
 1. Read the updated `AI_MODEL_SETUP.md` for detailed guidance
 2. Run `python3 examples/llama_pipeline_example.py` to see examples
 3. Use the parameter reference table above
+4. When using the AROS-Cognito model loaders, the DiagnosticOptions workaround is automatically applied
 
 ### For developers:
 1. Use `dtype` when calling `pipeline()`
 2. Use `torch_dtype` when calling `from_pretrained()`
 3. Run `python3 -m unittest tests/test_llama_pipeline_params.py` to verify correctness
+4. The DiagnosticOptions workaround is automatically applied in `src.local_models.__init__.py`, `llm_interface.py`, `codegen_model.py`, and `scripts/download_models.py`
 
 ## Related Files
 - `AI_MODEL_SETUP.md` - Updated documentation

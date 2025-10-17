@@ -234,6 +234,8 @@ This error occurs when using PyTorch 2.3.1+ with incompatible versions of transf
 
 **Note**: The ONNX package version (even 1.19.1) is usually not the issue. This is a PyTorch 2.3.1+ internal API change that requires updated transformers/accelerate packages. If you're stuck with older transformers versions, use the workaround in option 3 or 4.
 
+**Automatic Workaround**: The workaround in option 4 is **automatically applied** in the AROS-Cognito codebase when using `src.local_models` modules or the `scripts/download_models.py` script, so you don't need to manually add it when using these components.
+
 ### "Failed to load model"
 
 The system will automatically fall back to mock models. To use real models:
