@@ -5,9 +5,14 @@ Supports downloading CodeGen and LLaMA-2 models with progress tracking
 """
 
 import sys
+from unittest.mock import MagicMock
 import os
 import argparse
 from pathlib import Path
+
+# Apply PyTorch 2.3.1+ workaround for DiagnosticOptions import error
+if 'torch.onnx._internal.exporter' not in sys.modules:
+    sys.modules['torch.onnx._internal.exporter'] = MagicMock()
 
 
 def check_dependencies():

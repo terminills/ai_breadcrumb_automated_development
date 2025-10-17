@@ -128,6 +128,53 @@ You can change the cache directory:
 export TRANSFORMERS_CACHE=/path/to/cache
 ```
 
+## Using Models: Pipeline vs Direct Loading
+
+There are two ways to use Llama/transformers models, and they use **different parameter names**:
+
+### Method 1: Using pipeline() (Simpler)
+
+```python
+from transformers import pipeline
+
+# CORRECT: Use 'dtype' parameter
+pipe = pipeline(
+    "text-generation",
+    model="meta-llama/Llama-2-7b-chat-hf",
+    dtype="auto",  # Note: 'dtype' not 'torch_dtype'
+    device_map="auto"
+)
+
+out = pipe("Your prompt here", max_new_tokens=200)
+print(out[0]["generated_text"])
+```
+
+**Common Error:** Using `torch_dtype="auto"` with `pipeline()` will cause errors. The parameter is `dtype`.
+
+### Method 2: Using from_pretrained() (More Control)
+
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
+
+# CORRECT: Use 'torch_dtype' parameter
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-chat-hf")
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-2-7b-chat-hf",
+    torch_dtype=torch.float16,  # Note: 'torch_dtype' not 'dtype'
+    device_map="auto"
+)
+```
+
+### Parameter Reference
+
+| Function | Correct Parameter | Valid Values |
+|----------|------------------|--------------|
+| `pipeline()` | `dtype` | `"auto"`, `torch.float16`, `torch.float32`, `torch.bfloat16` |
+| `from_pretrained()` | `torch_dtype` | `torch.float16`, `torch.float32`, `torch.bfloat16` |
+
+**See also:** `examples/llama_pipeline_example.py` for complete working examples.
+
 ## Troubleshooting
 
 ### "No module named 'torch'"
@@ -141,16 +188,53 @@ pip install torch transformers
 
 ### "cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'"
 
-This error occurs when using an incompatible version of transformers with PyTorch 2.3.1+. To fix:
+This error occurs when using PyTorch 2.3.1+ with incompatible versions of transformers or related packages. The issue is that PyTorch 2.3.1+ changed internal ONNX APIs that transformers relies on.
 
-```bash
-pip install --upgrade transformers>=4.40.0
-```
+**Solutions (try in order):**
 
-Or reinstall dependencies:
-```bash
-pip install -r requirements.txt
-```
+1. **Upgrade transformers to 4.40.0 or later** (most reliable fix):
+   ```bash
+   pip install --upgrade transformers>=4.40.0
+   ```
+
+2. **If upgrading transformers doesn't work, try upgrading accelerate**:
+   ```bash
+   pip install --upgrade accelerate>=0.26.0
+   ```
+
+3. **Workaround: Disable ONNX export functionality** if not needed:
+   ```bash
+   # Set before running Python
+   export TRANSFORMERS_OFFLINE=1
+   ```
+   Or in your Python code before importing transformers:
+   ```python
+   import os
+   os.environ['TRANSFORMERS_OFFLINE'] = '1'
+   from transformers import pipeline
+   ```
+
+4. **Alternative: Use Python code workaround**:
+   ```python
+   # Add this at the very top of your script, before any transformers imports
+   import sys
+   from unittest.mock import MagicMock
+   
+   # Mock the problematic module to prevent the import error
+   sys.modules['torch.onnx._internal.exporter'] = MagicMock()
+   
+   # Now import transformers
+   from transformers import pipeline
+   ```
+
+5. **Reinstall all dependencies**:
+   ```bash
+   pip install --force-reinstall transformers>=4.40.0 accelerate>=0.26.0
+   ```
+
+**Note**: The ONNX package version (even 1.19.1) is usually not the issue. This is a PyTorch 2.3.1+ internal API change that requires updated transformers/accelerate packages. If you're stuck with older transformers versions, use the workaround in option 3 or 4.
+
+**Automatic Workaround**: The workaround in option 4 is **automatically applied** in the AROS-Cognito codebase when using `src.local_models` modules or the `scripts/download_models.py` script, so you don't need to manually add it when using these components.
 
 ### "Failed to load model"
 

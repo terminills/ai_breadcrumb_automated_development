@@ -3,9 +3,15 @@ Codegen Model Interface
 Handles code generation using local models
 """
 
+import sys
+from unittest.mock import MagicMock
 import logging
 from typing import Dict, Any, Optional, List
 from pathlib import Path
+
+# Apply PyTorch 2.3.1+ workaround for DiagnosticOptions import error
+if 'torch.onnx._internal.exporter' not in sys.modules:
+    sys.modules['torch.onnx._internal.exporter'] = MagicMock()
 
 logger = logging.getLogger(__name__)
 
