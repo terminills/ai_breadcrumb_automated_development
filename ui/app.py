@@ -1714,6 +1714,84 @@ def api_session_stop(session_id):
     }), 404
 
 
+@app.route('/api/sessions/<session_id>/breadcrumb_recall', methods=['GET'])
+def api_session_breadcrumb_recall(session_id):
+    """Get breadcrumb recall statistics for a session"""
+    # Look for session log file
+    session_log_paths = [
+        logs_path / 'sessions' / f"{session_id}.json",
+        logs_path / 'copilot_iteration' / 'sessions' / f"{session_id}.json"
+    ]
+    
+    for session_log_path in session_log_paths:
+        if session_log_path.exists():
+            try:
+                with open(session_log_path) as f:
+                    session_data = json.load(f)
+                
+                # Extract breadcrumb recall statistics
+                recall_stats = {
+                    'session_id': session_id,
+                    'breadcrumbs_consulted': len(session_data.get('breadcrumb_usage', {})),
+                    'patterns_recalled': session_data.get('patterns_recalled', []),
+                    'unique_patterns': len(set(session_data.get('patterns_recalled', []))),
+                    'work_avoided': len(session_data.get('work_avoided', [])),
+                    'work_avoided_details': session_data.get('work_avoided', []),
+                    'breadcrumb_influences': session_data.get('breadcrumb_influences', []),
+                    'influence_count': len(session_data.get('breadcrumb_influences', [])),
+                    'breadcrumb_usage': session_data.get('breadcrumb_usage', {}),
+                    'exploration_count': len(session_data.get('exploration_results', [])),
+                    'most_used_breadcrumbs': sorted(
+                        session_data.get('breadcrumb_usage', {}).items(),
+                        key=lambda x: x[1],
+                        reverse=True
+                    )[:10]
+                }
+                
+                # Add pattern details if available
+                if session_data.get('exploration_results'):
+                    latest_exploration = session_data['exploration_results'][-1]
+                    recall_stats['patterns_available'] = latest_exploration.get('patterns_found', [])
+                    recall_stats['duplicate_work_detected'] = latest_exploration.get('duplicate_work_found', 0)
+                
+                return jsonify({
+                    'status': 'success',
+                    'recall_stats': recall_stats
+                })
+            except Exception as e:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Failed to read session breadcrumb stats: {str(e)}'
+                }), 500
+    
+    # If session file not found, check iteration state
+    state_file = logs_path / 'iteration_state.json'
+    if state_file.exists():
+        try:
+            with open(state_file) as f:
+                state = json.load(f)
+            
+            if state.get('session_id') == session_id:
+                # Return minimal stats from state
+                return jsonify({
+                    'status': 'success',
+                    'recall_stats': {
+                        'session_id': session_id,
+                        'message': 'Session active but detailed stats not yet available',
+                        'breadcrumbs_consulted': 0,
+                        'patterns_recalled': [],
+                        'work_avoided': []
+                    }
+                })
+        except Exception as e:
+            pass
+    
+    return jsonify({
+        'status': 'error',
+        'message': 'Session not found'
+    }), 404
+
+
 @app.route('/api/agents/status')
 def api_agents_status():
     """Get status of all AI agents"""

@@ -1,19 +1,27 @@
 """
 Interactive Session Manager
 Manages Copilot-style interactive development sessions with exploration
+Enhanced with detailed breadcrumb tracking and recall mechanisms
 """
 
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Set
 from pathlib import Path
 from datetime import datetime
 import json
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
 
 class SessionManager:
-    """Manages interactive development sessions with exploration"""
+    """Manages interactive development sessions with exploration
+    
+    Enhanced with detailed breadcrumb tracking and recall mechanisms to:
+    - Track which breadcrumbs influenced which decisions
+    - Maintain pattern recognition to avoid repeating work
+    - Provide detailed context preservation across iterations
+    """
     
     def __init__(
         self,
@@ -29,6 +37,12 @@ class SessionManager:
         self.current_session = None
         self.session_history = []
         self.iteration_context = {}  # Track context across iterations
+        
+        # Enhanced breadcrumb tracking
+        self.breadcrumb_usage_tracker = defaultdict(int)  # Track how often breadcrumbs are used
+        self.breadcrumb_influence_map = {}  # Map decisions to breadcrumbs that influenced them
+        self.pattern_recall_db = {}  # Database of patterns learned from breadcrumbs
+        self.work_deduplication_cache = {}  # Cache to avoid repeating work
         
         # Load models
         self.codegen = None
@@ -59,10 +73,25 @@ class SessionManager:
             'turns': [],
             'exploration_results': [],
             'generated_code': [],
-            'status': 'active'
+            'status': 'active',
+            # Enhanced breadcrumb tracking
+            'breadcrumb_influences': [],  # Track which breadcrumbs influenced which decisions
+            'breadcrumb_usage': {},  # Count usage per breadcrumb
+            'patterns_recalled': [],  # Patterns retrieved from breadcrumb recall
+            'work_avoided': [],  # Work avoided due to breadcrumb recall
         }
         
-        logger.info(f"Started session {session_id}: {task_description}")
+        logger.info(f"✨ Started session {session_id}: {task_description}")
+        logger.info(f"📚 Breadcrumb recall system active - tracking pattern usage and avoiding duplicate work")
+        
+        # Check for similar past work
+        similar_work = self._check_for_similar_past_work(task_description)
+        if similar_work:
+            logger.info(f"🔍 Found {len(similar_work)} similar past work items:")
+            for i, work in enumerate(similar_work[:3], 1):
+                logger.info(f"   [{i}] {work['description'][:100]}...")
+                logger.info(f"       Used patterns: {', '.join(work.get('patterns', []))}")
+            self.current_session['work_avoided'].extend(similar_work)
         
         return session_id
     
@@ -117,8 +146,56 @@ class SessionManager:
         logger.info(f"  Searching for relevant breadcrumbs...")
         breadcrumbs = self._find_relevant_breadcrumbs(query)
         logger.info(f"  Found {len(breadcrumbs)} relevant breadcrumbs")
-        for i, bc in enumerate(breadcrumbs[:3], 1):  # Log first 3
-            logger.info(f"     [{i}] Phase: {bc.get('phase', 'unknown')}, Status: {bc.get('status', 'unknown')}")
+        
+        # Enhanced breadcrumb logging with influence tracking
+        breadcrumb_details = []
+        for i, bc in enumerate(breadcrumbs[:5], 1):  # Log first 5 with more detail
+            phase = bc.get('phase', 'unknown')
+            status = bc.get('status', 'unknown')
+            pattern = bc.get('pattern', None)
+            strategy = bc.get('strategy', None)
+            
+            logger.info(f"     [{i}] Phase: {phase}, Status: {status}")
+            if pattern:
+                logger.info(f"         Pattern: {pattern}")
+            if strategy:
+                logger.info(f"         Strategy: {strategy[:80]}...")
+            
+            # Track breadcrumb usage
+            breadcrumb_key = f"{bc.get('file_path', '')}:{bc.get('line_number', 0)}"
+            self.breadcrumb_usage_tracker[breadcrumb_key] += 1
+            self.current_session['breadcrumb_usage'][breadcrumb_key] = \
+                self.breadcrumb_usage_tracker[breadcrumb_key]
+            
+            breadcrumb_details.append({
+                'key': breadcrumb_key,
+                'phase': phase,
+                'status': status,
+                'pattern': pattern,
+                'strategy': strategy,
+                'usage_count': self.breadcrumb_usage_tracker[breadcrumb_key]
+            })
+        
+        if len(breadcrumbs) > 5:
+            logger.info(f"     ... and {len(breadcrumbs) - 5} more breadcrumbs")
+        
+        # Identify patterns from breadcrumbs
+        patterns_found = self._extract_patterns_from_breadcrumbs(breadcrumbs)
+        if patterns_found:
+            logger.info(f"  🎯 Identified {len(patterns_found)} reusable patterns from breadcrumbs:")
+            for pattern_name, pattern_info in list(patterns_found.items())[:3]:
+                logger.info(f"     • {pattern_name}: Used {pattern_info['count']} times")
+                logger.info(f"       Success rate: {pattern_info.get('success_rate', 'unknown')}")
+            self.current_session['patterns_recalled'].extend(list(patterns_found.keys()))
+        
+        # Check for duplicate work indicators
+        duplicate_work = self._check_breadcrumbs_for_duplicate_work(breadcrumbs, query)
+        if duplicate_work:
+            logger.info(f"  ⚠️  Duplicate work detection: Found {len(duplicate_work)} similar completed tasks")
+            for i, dup in enumerate(duplicate_work[:2], 1):
+                logger.info(f"     [{i}] {dup['phase']}: {dup['note'][:80]}...")
+                logger.info(f"         Status: {dup['status']}, Can reuse approach")
+            self.current_session['work_avoided'].extend(duplicate_work)
         
         # Use LLM to explore
         logger.info(f"  Analyzing codebase with language model...")
@@ -133,11 +210,24 @@ class SessionManager:
         exploration['files_examined'] = [fc['path'] for fc in file_contents]
         exploration['breadcrumbs_count'] = len(breadcrumbs)
         exploration['total_code_analyzed'] = sum(fc['size'] for fc in file_contents)
+        exploration['breadcrumb_details'] = breadcrumb_details  # Enhanced tracking
+        exploration['patterns_found'] = list(patterns_found.keys()) if patterns_found else []
+        exploration['duplicate_work_found'] = len(duplicate_work) if duplicate_work else 0
+        
+        # Track breadcrumb influence on exploration decisions
+        breadcrumb_keys = [bd['key'] for bd in breadcrumb_details]
+        self._track_breadcrumb_influence(
+            'exploration',
+            f"Explored {len(file_contents)} files based on {len(breadcrumbs)} breadcrumbs",
+            breadcrumb_keys
+        )
         
         logger.info(f"  ✓ Exploration complete")
         logger.info(f"     Files analyzed: {len(file_contents)}")
         logger.info(f"     Breadcrumbs consulted: {len(breadcrumbs)}")
         logger.info(f"     Total code analyzed: {exploration['total_code_analyzed']} bytes")
+        logger.info(f"     Patterns identified: {len(patterns_found)}")
+        logger.info(f"     Duplicate work detected: {len(duplicate_work)}")
         
         self.current_session['exploration_results'].append(exploration)
         
@@ -194,7 +284,16 @@ class SessionManager:
         
         # Check for exploration insights
         if self.current_session['exploration_results']:
-            logger.info(f"  Incorporating insights from {len(self.current_session['exploration_results'])} exploration(s)")
+            exploration_count = len(self.current_session['exploration_results'])
+            logger.info(f"  Incorporating insights from {exploration_count} exploration(s)")
+            
+            # Show patterns that can be reused
+            latest_exploration = self.current_session['exploration_results'][-1]
+            if latest_exploration.get('patterns_found'):
+                logger.info(f"     Available patterns: {', '.join(latest_exploration['patterns_found'][:5])}")
+            if latest_exploration.get('duplicate_work_found', 0) > 0:
+                logger.info(f"     ⚠️  {latest_exploration['duplicate_work_found']} similar completed tasks found")
+                logger.info(f"        Can leverage existing approaches to avoid duplicate work")
         
         # Reason about task
         logger.info(f"  Analyzing task and formulating strategy...")
@@ -203,6 +302,16 @@ class SessionManager:
             context=self.current_session['context'],
             previous_attempts=previous_attempts if previous_attempts else None
         )
+        
+        # Track breadcrumb influence on reasoning
+        if self.current_session['exploration_results']:
+            latest = self.current_session['exploration_results'][-1]
+            breadcrumb_keys = [bd['key'] for bd in latest.get('breadcrumb_details', [])]
+            self._track_breadcrumb_influence(
+                'reasoning',
+                f"Formulated strategy based on {len(breadcrumb_keys)} breadcrumbs and patterns",
+                breadcrumb_keys
+            )
         
         logger.info(f"  ✓ Reasoning complete")
         if 'reasoning' in reasoning:
@@ -249,9 +358,21 @@ class SessionManager:
             # Use latest exploration insights
             latest_exploration = self.current_session['exploration_results'][-1]
             context['exploration_insights'] = latest_exploration.get('insights', '')
+            context['patterns_available'] = latest_exploration.get('patterns_found', [])
+            context['similar_completed_work'] = latest_exploration.get('duplicate_work_found', 0)
+            
             logger.info(f"  Using exploration insights from {len(self.current_session['exploration_results'])} exploration(s)")
             logger.info(f"     Files examined: {len(latest_exploration.get('files_examined', []))}")
             logger.info(f"     Breadcrumbs consulted: {latest_exploration.get('breadcrumbs_count', 0)}")
+            logger.info(f"     Patterns available for reuse: {len(latest_exploration.get('patterns_found', []))}")
+            
+            # Track breadcrumb influence on generation
+            breadcrumb_keys = [bd['key'] for bd in latest_exploration.get('breadcrumb_details', [])]
+            self._track_breadcrumb_influence(
+                'generation',
+                f"Generated code using insights from {len(breadcrumb_keys)} breadcrumbs",
+                breadcrumb_keys
+            )
         
         # Add iteration context for continuity
         if self.iteration_context:
@@ -444,6 +565,18 @@ class SessionManager:
         if summary:
             self.current_session['summary'] = summary
         
+        # Log breadcrumb recall statistics
+        recall_stats = self.get_breadcrumb_recall_stats()
+        logger.info(f"📊 Breadcrumb Recall Statistics:")
+        logger.info(f"   Breadcrumbs consulted: {recall_stats['breadcrumbs_consulted']}")
+        logger.info(f"   Patterns recalled: {recall_stats['unique_patterns_recalled']}")
+        logger.info(f"   Work items avoided: {recall_stats['work_items_avoided']}")
+        logger.info(f"   Breadcrumb influences tracked: {recall_stats['breadcrumb_influences']}")
+        if recall_stats['most_used_breadcrumbs']:
+            logger.info(f"   Most used breadcrumbs:")
+            for bc_key, count in recall_stats['most_used_breadcrumbs'][:3]:
+                logger.info(f"      • {bc_key}: {count} times")
+        
         # Save session
         self._save_session()
         
@@ -515,7 +648,7 @@ class SessionManager:
             logger.error(f"Failed to save session: {e}")
     
     def get_session_summary(self) -> Dict[str, Any]:
-        """Get summary of current session"""
+        """Get summary of current session including breadcrumb recall stats"""
         if not self.current_session:
             return {'status': 'no_active_session'}
         
@@ -527,7 +660,12 @@ class SessionManager:
             'explorations': len(self.current_session['exploration_results']),
             'generations': len(self.current_session['generated_code']),
             'started_at': self.current_session['started_at'],
-            'iteration_context': self.iteration_context
+            'iteration_context': self.iteration_context,
+            # Enhanced breadcrumb tracking
+            'breadcrumb_recall': self.get_breadcrumb_recall_stats(),
+            'breadcrumb_influences': self.current_session.get('breadcrumb_influences', []),
+            'patterns_recalled': self.current_session.get('patterns_recalled', []),
+            'work_avoided': len(self.current_session.get('work_avoided', []))
         }
     
     def get_iteration_metrics(self) -> Dict[str, Any]:
@@ -731,3 +869,169 @@ class SessionManager:
             diff['summary'].append("No differences found - checkpoints are identical")
         
         return diff
+    
+    def _check_for_similar_past_work(self, task_description: str) -> List[Dict[str, Any]]:
+        """
+        Check session history for similar past work to avoid duplication
+        
+        Args:
+            task_description: Current task description
+            
+        Returns:
+            List of similar past work items with their patterns
+        """
+        similar_work = []
+        
+        # Simple keyword-based matching against session history
+        task_keywords = set(task_description.lower().split())
+        
+        for past_session in self.session_history:
+            past_task = past_session.get('task', '')
+            past_keywords = set(past_task.lower().split())
+            
+            # Check for keyword overlap
+            overlap = task_keywords & past_keywords
+            if len(overlap) >= 2:  # At least 2 common keywords
+                similar_work.append({
+                    'description': past_task,
+                    'patterns': past_session.get('patterns_recalled', []),
+                    'status': past_session.get('status', 'unknown'),
+                    'session_id': past_session.get('id', 'unknown')
+                })
+        
+        return similar_work
+    
+    def _extract_patterns_from_breadcrumbs(self, breadcrumbs: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract reusable patterns from breadcrumbs
+        
+        Args:
+            breadcrumbs: List of breadcrumb data
+            
+        Returns:
+            Dictionary of pattern names to pattern information
+        """
+        patterns = {}
+        
+        for bc in breadcrumbs:
+            pattern = bc.get('pattern')
+            if pattern:
+                if pattern not in patterns:
+                    patterns[pattern] = {
+                        'count': 0,
+                        'success_rate': 'unknown',
+                        'statuses': []
+                    }
+                patterns[pattern]['count'] += 1
+                status = bc.get('status', 'UNKNOWN')
+                patterns[pattern]['statuses'].append(status)
+                
+                # Calculate success rate
+                statuses = patterns[pattern]['statuses']
+                successful = sum(1 for s in statuses if s in ['IMPLEMENTED', 'FIXED'])
+                if statuses:
+                    patterns[pattern]['success_rate'] = f"{(successful/len(statuses)*100):.1f}%"
+        
+        return patterns
+    
+    def _check_breadcrumbs_for_duplicate_work(
+        self, 
+        breadcrumbs: List[Dict[str, Any]], 
+        query: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Check breadcrumbs to identify work that may have already been completed
+        
+        Args:
+            breadcrumbs: List of breadcrumb data
+            query: Current query/task
+            
+        Returns:
+            List of duplicate work items found
+        """
+        duplicate_work = []
+        query_keywords = set(query.lower().split())
+        
+        for bc in breadcrumbs:
+            # Check if this breadcrumb represents completed work similar to our query
+            status = bc.get('status', '').upper()
+            if status in ['IMPLEMENTED', 'FIXED']:
+                phase = bc.get('phase', '')
+                note = bc.get('ai_note', '')
+                
+                # Check for keyword matches in phase or note
+                bc_text = f"{phase} {note}".lower()
+                bc_keywords = set(bc_text.split())
+                overlap = query_keywords & bc_keywords
+                
+                if len(overlap) >= 2:  # Similar task
+                    duplicate_work.append({
+                        'phase': phase,
+                        'status': status,
+                        'note': note,
+                        'pattern': bc.get('pattern'),
+                        'strategy': bc.get('strategy'),
+                        'file_path': bc.get('file_path')
+                    })
+        
+        return duplicate_work
+    
+    def _track_breadcrumb_influence(
+        self,
+        decision_type: str,
+        decision_details: str,
+        breadcrumbs_used: List[str]
+    ):
+        """
+        Track which breadcrumbs influenced which decisions
+        
+        Args:
+            decision_type: Type of decision (e.g., 'strategy', 'generation', 'review')
+            decision_details: Details of the decision made
+            breadcrumbs_used: List of breadcrumb keys that influenced this decision
+        """
+        if not self.current_session:
+            return
+        
+        influence_record = {
+            'timestamp': datetime.now().isoformat(),
+            'decision_type': decision_type,
+            'decision_details': decision_details[:200],  # Truncate for storage
+            'breadcrumbs_used': breadcrumbs_used,
+            'breadcrumb_count': len(breadcrumbs_used)
+        }
+        
+        self.current_session['breadcrumb_influences'].append(influence_record)
+        
+        # Update influence map
+        for bc_key in breadcrumbs_used:
+            if bc_key not in self.breadcrumb_influence_map:
+                self.breadcrumb_influence_map[bc_key] = []
+            self.breadcrumb_influence_map[bc_key].append({
+                'decision_type': decision_type,
+                'timestamp': influence_record['timestamp']
+            })
+    
+    def get_breadcrumb_recall_stats(self) -> Dict[str, Any]:
+        """
+        Get statistics about breadcrumb usage and recall
+        
+        Returns:
+            Dictionary with recall statistics
+        """
+        if not self.current_session:
+            return {'status': 'no_active_session'}
+        
+        return {
+            'session_id': self.current_session['id'],
+            'breadcrumbs_consulted': len(self.current_session.get('breadcrumb_usage', {})),
+            'unique_patterns_recalled': len(set(self.current_session.get('patterns_recalled', []))),
+            'patterns_recalled': self.current_session.get('patterns_recalled', []),
+            'work_items_avoided': len(self.current_session.get('work_avoided', [])),
+            'breadcrumb_influences': len(self.current_session.get('breadcrumb_influences', [])),
+            'most_used_breadcrumbs': sorted(
+                self.current_session.get('breadcrumb_usage', {}).items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:10]
+        }
