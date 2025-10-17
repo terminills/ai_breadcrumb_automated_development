@@ -378,6 +378,7 @@
         
         // Track last known session state to detect changes
         let lastSessionState = {};
+        let hasActiveSessions = false;
         
         // Update active sessions list
         async function updateActiveSessions() {
@@ -389,8 +390,14 @@
                 
                 if (data.sessions.length === 0) {
                     sessionsList.innerHTML = '<p style="opacity: 0.6;">No active sessions.</p>';
+                    hasActiveSessions = false;
+                    
+                    // Clean up old session states for memory management
+                    lastSessionState = {};
                     return;
                 }
+                
+                hasActiveSessions = data.sessions.some(s => s.status === 'running');
                 
                 // Check for changes and log them
                 data.sessions.forEach(session => {
@@ -398,7 +405,10 @@
                     const lastState = lastSessionState[sessionId];
                     
                     if (!lastState) {
-                        // New session detected
+                        // New session detected - log it if not just page load
+                        if (Object.keys(lastSessionState).length > 0) {
+                            addLogEntry(`Session ${sessionId}: Created`, 'success');
+                        }
                         lastSessionState[sessionId] = session;
                     } else {
                         // Check for phase change
@@ -459,6 +469,11 @@
         
         // Update iteration status for detailed progress
         async function updateIterationStatus() {
+            // Only poll if there are active sessions
+            if (!hasActiveSessions) {
+                return;
+            }
+            
             try {
                 const response = await fetch('/api/iteration/status');
                 const status = await response.json();
@@ -469,11 +484,20 @@
                     const phases = status.phase_progress || {};
                     for (const [phaseName, phaseStatus] of Object.entries(phases)) {
                         const stateKey = `${status.session_id}_phase_${phaseName}`;
-                        if (!lastSessionState[stateKey] && phaseStatus === 'running') {
+                        const prevPhaseStatus = lastSessionState[stateKey];
+                        
+                        // Log phase start
+                        if (!prevPhaseStatus && phaseStatus === 'running') {
                             addLogEntry(`Session ${status.session_id}: Starting ${phaseName} phase`, '');
                             lastSessionState[stateKey] = phaseStatus;
-                        } else if (lastSessionState[stateKey] === 'running' && phaseStatus === 'completed') {
+                        }
+                        // Log phase completion (check both running->completed and undefined->completed transitions)
+                        else if (phaseStatus === 'completed' && prevPhaseStatus !== 'completed') {
                             addLogEntry(`Session ${status.session_id}: Completed ${phaseName} phase`, 'success');
+                            lastSessionState[stateKey] = phaseStatus;
+                        }
+                        // Update state for other transitions
+                        else if (prevPhaseStatus !== phaseStatus) {
                             lastSessionState[stateKey] = phaseStatus;
                         }
                     }
