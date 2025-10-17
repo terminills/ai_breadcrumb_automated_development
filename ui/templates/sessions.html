@@ -544,6 +544,13 @@
                             if (status.exploration.total_code_analyzed) {
                                 addLogEntry(`  → Analyzed ${status.exploration.total_code_analyzed} bytes of code`, '');
                             }
+                            // Enhanced: Log pattern detection and duplicate work avoidance
+                            if (status.exploration.patterns_found && status.exploration.patterns_found > 0) {
+                                addLogEntry(`  🎯 Identified ${status.exploration.patterns_found} reusable patterns`, 'success');
+                            }
+                            if (status.exploration.duplicate_work_found && status.exploration.duplicate_work_found > 0) {
+                                addLogEntry(`  ⚠️ Detected ${status.exploration.duplicate_work_found} similar completed tasks - can reuse approaches`, 'success');
+                            }
                             lastSessionState[explKey] = true;
                         }
                     }
@@ -683,6 +690,65 @@
                             html += `Warnings: ${status.compilation.warning_count}<br/>`;
                         }
                         html += '</div>';
+                    }
+                    
+                    // Breadcrumb Recall Statistics
+                    try {
+                        const recallResponse = await fetch(`/api/sessions/${sessionId}/breadcrumb_recall`);
+                        if (recallResponse.ok) {
+                            const recallData = await recallResponse.json();
+                            if (recallData.status === 'success' && recallData.recall_stats) {
+                                const stats = recallData.recall_stats;
+                                html += '<div style="margin-bottom: 10px;"><strong>📚 Breadcrumb Recall & Pattern Reuse:</strong><br/>';
+                                
+                                if (stats.breadcrumbs_consulted > 0) {
+                                    html += `Breadcrumbs consulted: ${stats.breadcrumbs_consulted}<br/>`;
+                                }
+                                
+                                if (stats.unique_patterns > 0) {
+                                    html += `Patterns recalled: ${stats.unique_patterns}<br/>`;
+                                    if (stats.patterns_recalled && stats.patterns_recalled.length > 0) {
+                                        html += '<div style="margin-left: 10px; font-size: 0.85em; opacity: 0.9;">';
+                                        html += '• ' + stats.patterns_recalled.slice(0, 5).join('<br/>• ');
+                                        if (stats.patterns_recalled.length > 5) {
+                                            html += `<br/>... and ${stats.patterns_recalled.length - 5} more`;
+                                        }
+                                        html += '</div>';
+                                    }
+                                }
+                                
+                                if (stats.work_avoided > 0) {
+                                    html += `<span style="color: #4ade80;">✓ Avoided duplicate work: ${stats.work_avoided} items</span><br/>`;
+                                    if (stats.work_avoided_details && stats.work_avoided_details.length > 0) {
+                                        html += '<div style="margin-left: 10px; font-size: 0.85em; opacity: 0.9; color: #4ade80;">';
+                                        stats.work_avoided_details.slice(0, 3).forEach(item => {
+                                            html += `• ${item.description || item.phase || 'Similar work'}<br/>`;
+                                        });
+                                        if (stats.work_avoided_details.length > 3) {
+                                            html += `... and ${stats.work_avoided_details.length - 3} more<br/>`;
+                                        }
+                                        html += '</div>';
+                                    }
+                                }
+                                
+                                if (stats.influence_count > 0) {
+                                    html += `Breadcrumb influences tracked: ${stats.influence_count}<br/>`;
+                                }
+                                
+                                if (stats.most_used_breadcrumbs && stats.most_used_breadcrumbs.length > 0) {
+                                    html += '<div style="margin-top: 5px; font-size: 0.85em; opacity: 0.9;">Most used breadcrumbs:<br/>';
+                                    stats.most_used_breadcrumbs.slice(0, 3).forEach(([key, count]) => {
+                                        const shortKey = key.length > 60 ? '...' + key.substring(key.length - 60) : key;
+                                        html += `<div style="margin-left: 10px;">• ${shortKey}: ${count}×</div>`;
+                                    });
+                                    html += '</div>';
+                                }
+                                
+                                html += '</div>';
+                            }
+                        }
+                    } catch (error) {
+                        console.log('Could not load breadcrumb recall stats:', error);
                     }
                     
                     if (html === '') {
