@@ -433,7 +433,11 @@
                     }
                 });
                 
-                sessionsList.innerHTML = data.sessions.map(session => `
+                sessionsList.innerHTML = data.sessions.map(session => {
+                    // Build details button
+                    const detailsId = `details-${session.id}`;
+                    
+                    return `
                     <div class="session-item ${session.status}">
                         <div class="session-header">
                             <span class="session-id">${session.id}</span>
@@ -457,12 +461,22 @@
                         ` : ''}
                         <div style="margin-top: 15px;">
                             ${session.status === 'running' ? 
-                                `<button class="btn btn-danger" onclick="stopSession('${session.id}')">Stop</button>` :
-                                ''
+                                `<button class="btn btn-danger" onclick="stopSession('${session.id}')">Stop</button>
+                                 <button class="btn" onclick="toggleDetails('${detailsId}')" style="margin-left: 10px;">Show Details</button>` :
+                                `<button class="btn" onclick="toggleDetails('${detailsId}')">Show Details</button>`
                             }
                         </div>
+                        <div id="${detailsId}" style="display: none; margin-top: 15px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+                            <div style="margin-bottom: 10px;">
+                                <strong>📊 Detailed Progress</strong>
+                            </div>
+                            <div id="${detailsId}-content" style="font-size: 0.9em;">
+                                Loading details...
+                            </div>
+                        </div>
                     </div>
-                `).join('');
+                `;
+                }).join('');
                 
                 // Mark that initial load is complete
                 isInitialLoad = false;
@@ -516,9 +530,171 @@
                             lastSessionState[stateKey] = phaseStatus;
                         }
                     }
+                    
+                    // Log detailed exploration results
+                    if (status.exploration && phaseStatus === 'completed') {
+                        const explKey = `${status.session_id}_exploration_logged`;
+                        if (!lastSessionState[explKey]) {
+                            if (status.exploration.files_examined && status.exploration.files_examined.length > 0) {
+                                addLogEntry(`  → Examined ${status.exploration.files_examined.length} files: ${status.exploration.files_examined.slice(0, 3).join(', ')}`, '');
+                            }
+                            if (status.exploration.breadcrumbs_analyzed) {
+                                addLogEntry(`  → Consulted ${status.exploration.breadcrumbs_analyzed} breadcrumbs`, '');
+                            }
+                            if (status.exploration.total_code_analyzed) {
+                                addLogEntry(`  → Analyzed ${status.exploration.total_code_analyzed} bytes of code`, '');
+                            }
+                            lastSessionState[explKey] = true;
+                        }
+                    }
+                    
+                    // Log detailed generation results
+                    if (status.generation && phases.generation === 'completed') {
+                        const genKey = `${status.session_id}_generation_logged`;
+                        if (!lastSessionState[genKey]) {
+                            if (status.generation.length) {
+                                addLogEntry(`  → Generated ${status.generation.length} characters (${status.generation.lines || 0} lines)`, '');
+                            }
+                            if (status.generation.used_exploration) {
+                                addLogEntry(`  → Used exploration insights for generation`, '');
+                            }
+                            lastSessionState[genKey] = true;
+                        }
+                    }
+                    
+                    // Log detailed review results
+                    if (status.review && phases.review === 'completed') {
+                        const revKey = `${status.session_id}_review_logged`;
+                        if (!lastSessionState[revKey]) {
+                            if (status.review.has_errors) {
+                                addLogEntry(`  ⚠ Code review found ${status.review.issue_count || 0} issue(s)`, 'error');
+                            } else {
+                                addLogEntry(`  ✓ Code review passed with no critical issues`, 'success');
+                            }
+                            lastSessionState[revKey] = true;
+                        }
+                    }
+                    
+                    // Log compilation results
+                    if (status.compilation && phases.compilation === 'completed') {
+                        const compKey = `${status.session_id}_compilation_logged`;
+                        if (!lastSessionState[compKey]) {
+                            if (status.compilation.success) {
+                                addLogEntry(`  ✓ Compilation successful`, 'success');
+                            } else if (status.compilation.error_count) {
+                                addLogEntry(`  ❌ Compilation failed with ${status.compilation.error_count} error(s)`, 'error');
+                            }
+                            lastSessionState[compKey] = true;
+                        }
+                    }
                 }
             } catch (error) {
                 console.error('Error updating iteration status:', error);
+            }
+        }
+        
+        // Toggle session details
+        async function toggleDetails(detailsId) {
+            const detailsDiv = document.getElementById(detailsId);
+            const contentDiv = document.getElementById(`${detailsId}-content`);
+            
+            if (detailsDiv.style.display === 'none') {
+                detailsDiv.style.display = 'block';
+                
+                // Load iteration details
+                try {
+                    const response = await fetch('/api/iteration/status');
+                    const status = await response.json();
+                    
+                    let html = '';
+                    
+                    // Exploration details
+                    if (status.exploration) {
+                        html += '<div style="margin-bottom: 10px;"><strong>🔍 Exploration:</strong><br/>';
+                        if (status.exploration.files_examined) {
+                            html += `Files examined: ${status.exploration.files_examined.length}<br/>`;
+                            html += '<div style="margin-left: 10px; font-size: 0.85em; opacity: 0.9;">';
+                            status.exploration.files_examined.slice(0, 5).forEach(f => {
+                                html += `• ${f}<br/>`;
+                            });
+                            if (status.exploration.files_examined.length > 5) {
+                                html += `... and ${status.exploration.files_examined.length - 5} more<br/>`;
+                            }
+                            html += '</div>';
+                        }
+                        if (status.exploration.breadcrumbs_analyzed) {
+                            html += `Breadcrumbs consulted: ${status.exploration.breadcrumbs_analyzed}<br/>`;
+                        }
+                        if (status.exploration.total_code_analyzed) {
+                            html += `Total code analyzed: ${status.exploration.total_code_analyzed} bytes<br/>`;
+                        }
+                        html += '</div>';
+                    }
+                    
+                    // Reasoning details
+                    if (status.reasoning) {
+                        html += '<div style="margin-bottom: 10px;"><strong>🧠 Reasoning:</strong><br/>';
+                        if (status.reasoning.strategy) {
+                            html += '<div style="margin-left: 10px; font-size: 0.85em; opacity: 0.9; max-height: 100px; overflow-y: auto;">';
+                            html += status.reasoning.strategy.substring(0, 300);
+                            if (status.reasoning.strategy.length > 300) html += '...';
+                            html += '</div>';
+                        }
+                        if (status.reasoning.approach) {
+                            html += `Approach: ${status.reasoning.approach}<br/>`;
+                        }
+                        html += '</div>';
+                    }
+                    
+                    // Generation details
+                    if (status.generation) {
+                        html += '<div style="margin-bottom: 10px;"><strong>💻 Code Generation:</strong><br/>';
+                        if (status.generation.length) {
+                            html += `Generated: ${status.generation.length} characters (${status.generation.lines || 0} lines)<br/>`;
+                        }
+                        if (status.generation.used_exploration !== undefined) {
+                            html += `Used exploration: ${status.generation.used_exploration ? 'Yes' : 'No'}<br/>`;
+                        }
+                        html += '</div>';
+                    }
+                    
+                    // Review details
+                    if (status.review) {
+                        html += '<div style="margin-bottom: 10px;"><strong>🔍 Code Review:</strong><br/>';
+                        if (status.review.has_errors !== undefined) {
+                            html += `Status: ${status.review.has_errors ? '⚠ Issues found' : '✓ Passed'}<br/>`;
+                        }
+                        if (status.review.issue_count !== undefined) {
+                            html += `Issues: ${status.review.issue_count}<br/>`;
+                        }
+                        html += '</div>';
+                    }
+                    
+                    // Compilation details
+                    if (status.compilation) {
+                        html += '<div style="margin-bottom: 10px;"><strong>🔨 Compilation:</strong><br/>';
+                        if (status.compilation.success !== undefined) {
+                            html += `Status: ${status.compilation.success ? '✓ Success' : '❌ Failed'}<br/>`;
+                        }
+                        if (status.compilation.error_count) {
+                            html += `Errors: ${status.compilation.error_count}<br/>`;
+                        }
+                        if (status.compilation.warning_count) {
+                            html += `Warnings: ${status.compilation.warning_count}<br/>`;
+                        }
+                        html += '</div>';
+                    }
+                    
+                    if (html === '') {
+                        html = 'No detailed information available yet.';
+                    }
+                    
+                    contentDiv.innerHTML = html;
+                } catch (error) {
+                    contentDiv.innerHTML = `Error loading details: ${error.message}`;
+                }
+            } else {
+                detailsDiv.style.display = 'none';
             }
         }
         
