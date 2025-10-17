@@ -84,40 +84,61 @@ class SessionManager:
         if not self.current_session:
             raise RuntimeError("No active session")
         
-        logger.info(f"Exploring: {query}")
+        logger.info(f"🔍 Starting exploration: {query}")
         
         # Ensure LLM is loaded
         if not self.llm:
+            logger.info("  Loading language model for exploration...")
             self.llm = self.model_loader.load_model('llm')
         
         # Find relevant files
+        logger.info(f"  Searching for relevant files (max: {max_files})...")
         relevant_files = self._find_relevant_files(query, max_files)
+        logger.info(f"  Found {len(relevant_files)} potentially relevant files")
         
-        # Load file contents
+        # Load file contents with detailed logging
         file_contents = []
-        for file_path in relevant_files:
+        for i, file_path in enumerate(relevant_files, 1):
             try:
+                logger.info(f"  [{i}/{len(relevant_files)}] Analyzing: {file_path.relative_to(self.aros_path)}")
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     content = f.read()
                     file_contents.append({
                         'path': str(file_path.relative_to(self.aros_path)),
-                        'content': content
+                        'content': content,
+                        'size': len(content),
+                        'lines': content.count('\n') + 1
                     })
+                    logger.info(f"     → {len(content)} bytes, {content.count(chr(10)) + 1} lines")
             except Exception as e:
-                logger.warning(f"Could not read {file_path}: {e}")
+                logger.warning(f"  ⚠ Could not read {file_path}: {e}")
         
-        # Find relevant breadcrumbs
+        # Find relevant breadcrumbs with detailed logging
+        logger.info(f"  Searching for relevant breadcrumbs...")
         breadcrumbs = self._find_relevant_breadcrumbs(query)
+        logger.info(f"  Found {len(breadcrumbs)} relevant breadcrumbs")
+        for i, bc in enumerate(breadcrumbs[:3], 1):  # Log first 3
+            logger.info(f"     [{i}] Phase: {bc.get('phase', 'unknown')}, Status: {bc.get('status', 'unknown')}")
         
         # Use LLM to explore
+        logger.info(f"  Analyzing codebase with language model...")
         exploration = self.llm.explore_codebase(
             query=query,
             file_contents=file_contents,
             breadcrumbs=breadcrumbs
         )
         
-        # Add to session
+        # Add detailed metadata
         exploration['timestamp'] = datetime.now().isoformat()
+        exploration['files_examined'] = [fc['path'] for fc in file_contents]
+        exploration['breadcrumbs_count'] = len(breadcrumbs)
+        exploration['total_code_analyzed'] = sum(fc['size'] for fc in file_contents)
+        
+        logger.info(f"  ✓ Exploration complete")
+        logger.info(f"     Files analyzed: {len(file_contents)}")
+        logger.info(f"     Breadcrumbs consulted: {len(breadcrumbs)}")
+        logger.info(f"     Total code analyzed: {exploration['total_code_analyzed']} bytes")
+        
         self.current_session['exploration_results'].append(exploration)
         
         # Add turn to session
@@ -141,24 +162,52 @@ class SessionManager:
         if not self.current_session:
             raise RuntimeError("No active session")
         
+        logger.info(f"🧠 Starting reasoning phase...")
+        
         # Ensure LLM is loaded
         if not self.llm:
+            logger.info("  Loading language model for reasoning...")
             self.llm = self.model_loader.load_model('llm')
         
         task = specific_question or self.current_session['task']
+        logger.info(f"  Task: {task}")
         
         # Gather previous attempts from session
+        logger.info(f"  Reviewing previous attempts...")
         previous_attempts = []
         for turn in self.current_session['turns']:
             if turn['action'] == 'generate' and turn.get('result'):
                 previous_attempts.append(turn['result'].get('summary', ''))
         
+        if previous_attempts:
+            logger.info(f"     Found {len(previous_attempts)} previous attempts to learn from")
+        else:
+            logger.info(f"     No previous attempts (first iteration)")
+        
+        # Show context being used
+        logger.info(f"  Context available:")
+        for key, value in self.current_session['context'].items():
+            if isinstance(value, str):
+                logger.info(f"     {key}: {value[:100]}{'...' if len(value) > 100 else ''}")
+            else:
+                logger.info(f"     {key}: {type(value).__name__}")
+        
+        # Check for exploration insights
+        if self.current_session['exploration_results']:
+            logger.info(f"  Incorporating insights from {len(self.current_session['exploration_results'])} exploration(s)")
+        
         # Reason about task
+        logger.info(f"  Analyzing task and formulating strategy...")
         reasoning = self.llm.reason_about_task(
             task_description=task,
             context=self.current_session['context'],
             previous_attempts=previous_attempts if previous_attempts else None
         )
+        
+        logger.info(f"  ✓ Reasoning complete")
+        if 'reasoning' in reasoning:
+            preview = reasoning['reasoning'][:200]
+            logger.info(f"     Strategy preview: {preview}...")
         
         # Add turn to session
         self._add_turn('reason', task, reasoning)
@@ -185,8 +234,12 @@ class SessionManager:
         if not self.current_session:
             raise RuntimeError("No active session")
         
+        logger.info(f"💻 Starting code generation...")
+        logger.info(f"  Iteration: {len(self.current_session['generated_code']) + 1}")
+        
         # Ensure codegen is loaded
         if not self.codegen:
+            logger.info("  Loading code generation model...")
             self.codegen = self.model_loader.load_model('codegen')
         
         # Build context from exploration if enabled
@@ -196,14 +249,21 @@ class SessionManager:
             # Use latest exploration insights
             latest_exploration = self.current_session['exploration_results'][-1]
             context['exploration_insights'] = latest_exploration.get('insights', '')
+            logger.info(f"  Using exploration insights from {len(self.current_session['exploration_results'])} exploration(s)")
+            logger.info(f"     Files examined: {len(latest_exploration.get('files_examined', []))}")
+            logger.info(f"     Breadcrumbs consulted: {latest_exploration.get('breadcrumbs_count', 0)}")
         
         # Add iteration context for continuity
         if self.iteration_context:
             context['previous_attempts'] = self.iteration_context.get('attempts', [])
             context['learned_patterns'] = self.iteration_context.get('patterns', [])
+            logger.info(f"  Incorporating learning from {len(self.iteration_context.get('attempts', []))} previous attempts")
+            if self.iteration_context.get('patterns'):
+                logger.info(f"  Applying {len(self.iteration_context.get('patterns', []))} learned patterns")
         
         # Generate code with breadcrumbs
         task_desc = prompt or self.current_session['task']
+        logger.info(f"  Task: {task_desc}")
         
         # Get previous attempts for history
         breadcrumb_history = []
@@ -212,6 +272,15 @@ class SessionManager:
                 breadcrumb_history.append(f"Failed: {gen['error']}")
             else:
                 breadcrumb_history.append("Generated successfully")
+        
+        if breadcrumb_history:
+            logger.info(f"  History: {len(breadcrumb_history)} previous generations")
+            for i, hist in enumerate(breadcrumb_history[-3:], 1):  # Show last 3
+                logger.info(f"     [{i}] {hist}")
+        
+        logger.info(f"  Generating code...")
+        if stream:
+            logger.info(f"     (streaming enabled)")
         
         generated_code = self.codegen.generate_with_breadcrumbs(
             task_description=task_desc,
@@ -225,8 +294,15 @@ class SessionManager:
             'timestamp': datetime.now().isoformat(),
             'used_exploration': use_exploration,
             'iteration': len(self.current_session['generated_code']) + 1,
-            'streamed': stream
+            'streamed': stream,
+            'context_size': sum(len(str(v)) for v in context.values()),
+            'exploration_files': len(self.current_session['exploration_results'][-1].get('files_examined', [])) if self.current_session['exploration_results'] else 0
         }
+        
+        logger.info(f"  ✓ Code generation complete")
+        logger.info(f"     Generated: {len(generated_code)} characters")
+        logger.info(f"     Lines: {generated_code.count(chr(10)) + 1}")
+        logger.info(f"     Context used: {generation_result['context_size']} bytes")
         
         self.current_session['generated_code'].append(generation_result)
         
@@ -275,8 +351,11 @@ class SessionManager:
         if not self.current_session:
             raise RuntimeError("No active session")
         
+        logger.info(f"🔍 Starting code review...")
+        
         # Ensure LLM is loaded
         if not self.llm:
+            logger.info("  Loading language model for review...")
             self.llm = self.model_loader.load_model('llm')
         
         # Use latest generated code if not provided
@@ -285,12 +364,32 @@ class SessionManager:
                 raise ValueError("No code to review")
             code = self.current_session['generated_code'][-1]['code']
         
+        logger.info(f"  Reviewing {len(code)} characters of code")
+        logger.info(f"  Requirements: {self.current_session['task']}")
+        
+        if errors:
+            logger.info(f"  Analyzing {len(errors)} error(s):")
+            for i, err in enumerate(errors[:5], 1):  # Show first 5
+                logger.info(f"     [{i}] {err[:100]}{'...' if len(err) > 100 else ''}")
+        else:
+            logger.info(f"  No errors reported for this code")
+        
         # Review code
+        logger.info(f"  Performing comprehensive code review...")
         review = self.llm.review_code(
             code=code,
             requirements=self.current_session['task'],
             errors=errors
         )
+        
+        logger.info(f"  ✓ Review complete")
+        if 'review' in review:
+            preview = review['review'][:200]
+            logger.info(f"     Review preview: {preview}...")
+        if review.get('has_errors'):
+            logger.info(f"     ⚠ Issues found during review")
+        else:
+            logger.info(f"     ✓ No critical issues found")
         
         # Add turn to session
         self._add_turn('review', f"Review generated code", review)
