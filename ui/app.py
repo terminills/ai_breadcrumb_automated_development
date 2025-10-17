@@ -777,31 +777,37 @@ def api_iteration_start():
 @app.route('/api/iteration/status')
 def api_iteration_status():
     """Get iteration loop status"""
-    # Check for active iteration state file
-    state_file = logs_path / 'iteration_state.json'
+    # Check for active iteration state files in multiple locations
+    # 1. copilot_iteration subdirectory (for live runs) - check first
+    # 2. Root logs directory (for demo sessions and legacy)
+    state_files = [
+        logs_path / 'copilot_iteration' / 'iteration_state.json',
+        logs_path / 'iteration_state.json'
+    ]
     
-    if state_file.exists():
-        try:
-            with open(state_file) as f:
-                state = json.load(f)
-            
-            # Check if iteration is active (updated recently)
-            last_update = datetime.fromisoformat(state.get('last_update', '2000-01-01'))
-            is_active = (datetime.now() - last_update).total_seconds() < 300  # Active if updated within 5 minutes
-            
-            return jsonify({
-                'status': 'running' if is_active else 'idle',
-                'current_iteration': state.get('current_iteration', 0),
-                'total_iterations': state.get('total_iterations', 0),
-                'current_phase': state.get('current_phase', 'none'),
-                'phase_progress': state.get('phase_progress', {}),
-                'session_id': state.get('session_id'),
-                'last_update': state.get('last_update'),
-                'retry_count': state.get('retry_count', 0),
-                'task_description': state.get('task_description', '')
-            })
-        except Exception as e:
-            logger.error(f"Error reading iteration state: {e}")
+    for state_file in state_files:
+        if state_file.exists():
+            try:
+                with open(state_file) as f:
+                    state = json.load(f)
+                
+                # Check if iteration is active (updated recently)
+                last_update = datetime.fromisoformat(state.get('last_update', '2000-01-01'))
+                is_active = (datetime.now() - last_update).total_seconds() < 300  # Active if updated within 5 minutes
+                
+                return jsonify({
+                    'status': 'running' if is_active else 'idle',
+                    'current_iteration': state.get('current_iteration', 0),
+                    'total_iterations': state.get('total_iterations', 0),
+                    'current_phase': state.get('current_phase', 'none'),
+                    'phase_progress': state.get('phase_progress', {}),
+                    'session_id': state.get('session_id'),
+                    'last_update': state.get('last_update'),
+                    'retry_count': state.get('retry_count', 0),
+                    'task_description': state.get('task_description', '')
+                })
+            except Exception as e:
+                print(f"Error reading iteration state from {state_file}: {e}")
     
     # Fallback to log file check
     agent_log_dir = logs_path / 'agent'
@@ -1426,31 +1432,42 @@ session_lock = threading.Lock()
 @app.route('/api/sessions', methods=['GET'])
 def api_sessions_list():
     """List active and recent sessions"""
-    # Check iteration state file for current session
-    state_file = logs_path / 'iteration_state.json'
-    history_file = logs_path / 'iteration_history.json'
+    # Check iteration state files in multiple locations
+    # 1. Root logs directory (for demo sessions and legacy)
+    # 2. copilot_iteration subdirectory (for live runs)
+    state_files = [
+        logs_path / 'iteration_state.json',
+        logs_path / 'copilot_iteration' / 'iteration_state.json'
+    ]
     
     sessions_list = []
     
-    # Get current/recent session from state file
-    if state_file.exists():
-        try:
-            with open(state_file) as f:
-                state = json.load(f)
-            
-            # Create session info from state
-            session_info = {
-                'id': state.get('session_id', 'current'),
-                'status': 'running' if state.get('current_phase') not in ['none', 'done'] else 'completed',
-                'task': state.get('task_description', ''),
-                'started_at': state.get('started_at', state.get('last_update', '')),
-                'current_phase': state.get('current_phase', 'none'),
-                'current_iteration': state.get('current_iteration', 0),
-                'total_iterations': state.get('total_iterations', 0)
-            }
-            sessions_list.append(session_info)
-        except Exception as e:
-            print(f"Error reading state file: {e}")
+    # Get current/recent session from state files
+    for state_file in state_files:
+        if state_file.exists():
+            try:
+                with open(state_file) as f:
+                    state = json.load(f)
+                
+                session_id = state.get('session_id', 'current')
+                
+                # Skip if we already have this session
+                if any(s['id'] == session_id for s in sessions_list):
+                    continue
+                
+                # Create session info from state
+                session_info = {
+                    'id': session_id,
+                    'status': 'running' if state.get('current_phase') not in ['none', 'done', 'completed'] else 'completed',
+                    'task': state.get('task_description', ''),
+                    'started_at': state.get('started_at', state.get('last_update', '')),
+                    'current_phase': state.get('current_phase', 'none'),
+                    'current_iteration': state.get('current_iteration', 0),
+                    'total_iterations': state.get('total_iterations', 0)
+                }
+                sessions_list.append(session_info)
+            except Exception as e:
+                print(f"Error reading state file {state_file}: {e}")
     
     # Add info about running processes
     with session_lock:
