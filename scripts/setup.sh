@@ -10,7 +10,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Default values
 USE_AMD=false
 ROCM_VERSION=""
-PYTORCH_VERSION="2.3.1"
+PYTORCH_VERSION="2.9.0"
 
 # Function to display usage
 usage() {
@@ -22,8 +22,8 @@ Options:
     -h, --help      Display this help message
 
 Examples:
-    $0              Install generic PyTorch (CPU/CUDA)
-    $0 --amd        Install PyTorch with ROCm support (auto-detect version)
+    $0              Install generic PyTorch 2.9.0 (CPU/CUDA)
+    $0 --amd        Install PyTorch 2.9.0 with ROCm support (auto-detect version)
 
 EOF
     exit 0
@@ -44,8 +44,8 @@ detect_rocm_version() {
             # Force 5.7 for PyTorch compatibility when kernel reports 1.1
             if [ "$rocm_ver" = "1.1" ] && [ -f "/opt/rocm/.info/version" ]; then
                 local file_ver=$(cat /opt/rocm/.info/version 2>/dev/null | cut -d'-' -f1 | cut -d'.' -f1,2)
-                if [[ "$file_ver" =~ ^5\.7 ]]; then
-                    echo "5.7"
+                if [[ "$file_ver" =~ ^7\.0 ]]; then
+                    echo "7.0"
                     return 0
                 fi
             fi
@@ -102,9 +102,9 @@ install_pytorch_rocm() {
     echo "Installing PyTorch $pytorch_ver with ROCm $rocm_ver support..."
     echo ""
     
-    # Special handling for ROCm 5.7 - PyTorch 2.3.1 is available with ROCm 5.7 support
-    if [[ "$rocm_ver" == "5.7" ]]; then
-        echo "✓ Detected ROCm 5.7.x - using PyTorch official repository with ROCm 5.7 support"
+    # Special handling for ROCm 7.0 - PyTorch 2.9.0 is available with ROCm 7.0 support
+    if [[ "$rocm_ver" == "7.0" ]]; then
+        echo "✓ Detected ROCm 7.0.x - using PyTorch official repository with ROCm 7.0 support"
         echo ""
     fi
     
@@ -131,7 +131,7 @@ install_pytorch_generic() {
     echo "Installing generic PyTorch (CPU/CUDA) from requirements.txt..."
     echo ""
     
-    # Install requirements which includes torch>=2.3.1
+    # Install requirements which includes torch>=2.9.0
     pip install -r "$PROJECT_ROOT/requirements.txt"
     
     if [ $? -eq 0 ]; then
@@ -229,7 +229,7 @@ if [ "$USE_AMD" = true ]; then
     
     # Verify ROCm version is supported
     case "$ROCM_VERSION" in
-        5.0|5.1|5.2|5.3|5.4|5.5|5.6|5.7|6.0|6.1)
+        6.0|6.1|6.2|7.0|7.1)
             echo "✓ ROCm $ROCM_VERSION is supported by PyTorch"
             ;;
         *)
