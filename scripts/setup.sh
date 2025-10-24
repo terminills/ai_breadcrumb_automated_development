@@ -40,8 +40,8 @@ detect_rocm_version() {
     if command_exists rocminfo; then
         local rocm_ver=$(rocminfo 2>/dev/null | grep "Runtime Version" | head -1 | awk '{print $3}' | cut -d'.' -f1,2)
         if [ -n "$rocm_ver" ]; then
-            # On Ubuntu 22.04.3, kernel module may report 1.1 but ROCm 5.7.1 is installed
-            # Force 5.7 for PyTorch compatibility when kernel reports 1.1
+            # On Ubuntu 22.04.3, kernel module may report 1.1 but ROCm 7.0.2 is installed
+            # Force 7.0 for PyTorch compatibility when kernel reports 1.1
             if [ "$rocm_ver" = "1.1" ] && [ -f "/opt/rocm/.info/version" ]; then
                 local file_ver=$(cat /opt/rocm/.info/version 2>/dev/null | cut -d'-' -f1 | cut -d'.' -f1,2)
                 if [[ "$file_ver" =~ ^7\.0 ]]; then

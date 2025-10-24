@@ -118,10 +118,10 @@ For AMD GPU users with ROCm (auto-detects ROCm version):
 
 The `--amd` flag will:
 - Automatically detect your installed ROCm version
-- Install PyTorch from the AMD ROCm repository matching your version
-- Ensure compatibility with AMD Instinct GPUs (MI25, MI60, etc.)
+- Install PyTorch from the official PyTorch repository matching your ROCm version
+- Ensure compatibility with modern AMD GPUs (Radeon Pro V620, RX 7000 series, etc.)
 
-**Note**: The setup script supports ROCm versions 5.0 through 6.1. If you have a different version, it will attempt installation but may require manual intervention.
+**Note**: The setup script supports ROCm versions 6.0 through 7.1. If you have a different version, it will attempt installation but may require manual intervention.
 
 Alternative quick setup (includes all steps):
 ```bash
@@ -436,7 +436,7 @@ See the main README.md for complete breadcrumb tag reference.
 To train on specific AROS components:
 
 ```bash
-./scripts/train_model.sh /path/to/aros custom-model-name gfx900
+./scripts/train_model.sh /path/to/aros custom-model-name gfx1030
 ```
 
 ### Targeted Compilation
