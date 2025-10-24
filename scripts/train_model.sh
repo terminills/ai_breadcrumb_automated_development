@@ -15,7 +15,7 @@ echo ""
 # Parse arguments
 DATA_PATH="${1:-$PROJECT_ROOT/aros-src}"
 OUTPUT_PATH="${2:-$PROJECT_ROOT/models/aros-v1.3}"
-ROCM_ARCH="${3:-gfx900,gfx906}"
+ROCM_ARCH="${3:-gfx1030}"
 
 echo "Training Configuration:"
 echo "  Data Path: $DATA_PATH"

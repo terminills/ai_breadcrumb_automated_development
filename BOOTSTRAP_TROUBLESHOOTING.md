@@ -41,8 +41,8 @@ Failed to clone repository
 
 **Solutions:**
 1. **Use automatic installation (Ubuntu 22.04.3 only)**:
-   - The bootstrap script will offer to install ROCm 5.7.1 automatically
-   - Answer 'y' when prompted: "Install ROCm 5.7.1? (y/n)"
+   - The bootstrap script will offer to install ROCm 7.0.2 automatically
+   - Answer 'y' when prompted: "Install ROCm 7.0.2? (y/n)"
    - Installation handles DKMS compatibility issues automatically
 
 2. Verify ROCm installation:
@@ -56,13 +56,13 @@ Failed to clone repository
    cat /opt/rocm/.info/version
    ```
 
-4. Manual ROCm 5.7.1 installation:
+4. Manual ROCm 7.0.2 installation:
    - Visit: https://rocmdocs.amd.com/
    - Follow Ubuntu 22.04.3 instructions
 
-5. Special handling for ROCm 5.7:
-   - PyTorch 2.3.1+rocm5.7 will be installed from official PyTorch repository
-   - torchvision and torchaudio will be installed with ROCm 5.7 support
+5. Special handling for ROCm 7.0:
+   - PyTorch 2.9.0+rocm7.0 will be installed from official PyTorch repository
+   - torchvision and torchaudio will be installed with ROCm 7.0 support
    - Compatible with Python 3.8+
 
 6. Continue without ROCm:
@@ -79,15 +79,15 @@ amdgpu module version shows 1.1 instead of 5.7.1
 
 **Explanation:**
 Ubuntu 22.04.3 has compatibility issues with DKMS modules from newer ROCm packages. The bootstrap script addresses this by:
-- Installing ROCm 5.7.1 without DKMS drivers
+- Installing ROCm 7.0.2 without DKMS drivers
 - Using the kernel's built-in amdgpu driver
 - The kernel module may show version 1.1, but this is expected and correct
-- ROCm 5.7.1 userspace tools and libraries are fully functional
+- ROCm 7.0.2 userspace tools and libraries are fully functional
 
 **Solutions:**
 1. **Automatic fix (recommended)**:
    - Run the bootstrap script: `./scripts/bootstrap_ubuntu.sh`
-   - When prompted, choose to install ROCm 5.7.1
+   - When prompted, choose to install ROCm 7.0.2
    - Script installs ROCm without DKMS automatically
 
 2. Verify ROCm is working despite version mismatch:
@@ -130,8 +130,8 @@ Ubuntu 22.04.3 has compatibility issues with DKMS modules from newer ROCm packag
    ```
 
 2. Verify GPU support:
-   - MI25 (gfx900) ✓
-   - MI60 (gfx906) ✓
+   - Radeon Pro V620 (gfx1030) ✓
+   - Radeon Pro V620 (gfx1030) ✓
    - Other gfx9xx ✓
 
 3. Check GPU permissions:
@@ -165,11 +165,11 @@ error: uninstall-distutils-installed-package
 #### Problem: "PyTorch ROCm version mismatch"
 **Symptoms:**
 ```
-⚠ Warning: Python 3.x detected, but AMD ROCm 5.7 wheels are built for Python 3.10
+⚠ Warning: Python 3.x detected, but AMD ROCm 7.0 wheels are built for Python 3.10
 ```
 
 **Solutions:**
-1. Install Python 3.10 for ROCm 5.7.1:
+1. Install Python 3.10 for ROCm 7.0.2:
    ```bash
    sudo apt-get install python3.10 python3.10-venv python3.10-dev
    ```
@@ -196,14 +196,14 @@ error: uninstall-distutils-installed-package
    curl -I https://repo.radeon.com/rocm/manylinux/rocm-rel-5.7/
    ```
 
-2. Manual installation for ROCm 5.7:
+2. Manual installation for ROCm 7.0:
    ```bash
-   pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+   pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
    ```
 
 3. Alternative - try without specifying version:
    ```bash
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
    ```
 
 ### Database Issues
@@ -409,8 +409,8 @@ ERROR: Could not install packages
 
 2. Manual PyTorch install:
    ```bash
-   # For ROCm 5.7
-   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+   # For ROCm 7.0
+   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
    ```
 
 3. CPU-only fallback:

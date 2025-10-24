@@ -29,8 +29,8 @@
 - Configurable via `VENV_BASE` environment variable
 
 ### 4. ROCm Validation ✓
-- Detects ROCm 5.7.1
-- Validates AMD GPU (MI25, MI60, etc.)
+- Detects ROCm 7.0.2
+- Validates AMD GPU (Radeon Pro V620, Radeon Pro V620, etc.)
 - Falls back to CPU mode if not available
 - ROCm installed via sudo if needed (and if user chose system packages)
 
@@ -47,7 +47,7 @@
 - Validates on every run
 
 ### 7. Python Dependencies ✓
-- Installs PyTorch 2.3.1+ (or 2.0.1 for ROCm 5.7.1)
+- Installs PyTorch 2.9.0+ (or 2.0.1 for ROCm 7.0.2)
 - Installs all dependencies in venv
 - Validates installation
 
@@ -150,7 +150,7 @@ Run test suite:
 - Ubuntu 22.04.3 (recommended)
 - Python 3.8+
 - 20GB+ disk space
-- Optional: ROCm 5.7.1 + AMD GPU
+- Optional: ROCm 7.0.2 + AMD GPU
 
 ## Key Features
 

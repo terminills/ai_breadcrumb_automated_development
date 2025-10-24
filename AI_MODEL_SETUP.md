@@ -10,7 +10,7 @@ The AROS-Cognito system uses two AI models for intelligent code generation and a
 ### Version Compatibility
 
 - **PyTorch**: 2.3.1 or later
-- **Transformers**: 4.40.0 or later (required for PyTorch 2.3.1+ compatibility)
+- **Transformers**: 4.40.0 or later (required for PyTorch 2.9.0+ compatibility)
 
 ## Important: Models Are Required
 
@@ -92,7 +92,7 @@ model = loader.load_model('codegen', use_mock=True)
 
 ### With AMD ROCm
 
-If you have an AMD GPU with ROCm 5.7.1 installed:
+If you have an AMD GPU with ROCm 7.0.2 installed:
 
 ```bash
 # Models will automatically use GPU if available
@@ -188,7 +188,7 @@ pip install torch transformers
 
 ### "cannot import name 'DiagnosticOptions' from 'torch.onnx._internal.exporter'"
 
-This error occurs when using PyTorch 2.3.1+ with incompatible versions of transformers or related packages. The issue is that PyTorch 2.3.1+ changed internal ONNX APIs that transformers relies on.
+This error occurs when using PyTorch 2.9.0+ with incompatible versions of transformers or related packages. The issue is that PyTorch 2.9.0+ changed internal ONNX APIs that transformers relies on.
 
 **Solutions (try in order):**
 
@@ -232,7 +232,7 @@ This error occurs when using PyTorch 2.3.1+ with incompatible versions of transf
    pip install --force-reinstall transformers>=4.40.0 accelerate>=0.26.0
    ```
 
-**Note**: The ONNX package version (even 1.19.1) is usually not the issue. This is a PyTorch 2.3.1+ internal API change that requires updated transformers/accelerate packages. If you're stuck with older transformers versions, use the workaround in option 3 or 4.
+**Note**: The ONNX package version (even 1.19.1) is usually not the issue. This is a PyTorch 2.9.0+ internal API change that requires updated transformers/accelerate packages. If you're stuck with older transformers versions, use the workaround in option 3 or 4.
 
 **Automatic Workaround**: The workaround in option 4 is **automatically applied** in the AROS-Cognito codebase when using `src.local_models` modules or the `scripts/download_models.py` script, so you don't need to manually add it when using these components.
 

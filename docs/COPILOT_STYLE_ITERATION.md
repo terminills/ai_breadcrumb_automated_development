@@ -102,11 +102,11 @@ pip install torch transformers
 
 ### 2. AMD ROCm Installation (GPU Acceleration)
 
-For AMD GPUs (MI25, MI60, RX 6000/7000 series):
+For AMD GPUs (Radeon Pro V620, Radeon Pro V620, RX 6000/7000 series):
 
 ```bash
 # Install PyTorch with ROCm support
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
 
 # Install Transformers
 pip install transformers accelerate
