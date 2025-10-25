@@ -235,7 +235,7 @@ static void my_function(void) {
 
 ### Ubuntu 22.04.3 Complete Bootstrap (Recommended)
 
-For a complete, one-command setup on Ubuntu 22.04.3 with ROCm 5.7.1:
+For a complete, one-command setup on Ubuntu 22.04.3 with ROCm 7.0.2:
 
 ```bash
 # Complete bootstrap - handles everything automatically
@@ -251,19 +251,19 @@ This bootstrap script will:
 - Ask once about system package installation (optional)
 - Install all system dependencies via sudo (if requested)
 - Create and configure a Python virtual environment in `~/cognito-envs/ai_breadcrumb/`
-- Validate ROCm 5.7.1 installation
+- Validate ROCm 7.0.2 installation
 - Prompt for GitHub token (first run only)
 - Clone both AROS-OLD and configure upstream
 - Initialize database schema
-- Install PyTorch 2.3.1+ (with ROCm 5.7 support when available)
+- Install PyTorch 2.9.0 (with ROCm 7.0 support when available)
 - Configure UI for network access
 - Verify the complete installation
 
 **Note:** 
 - The script runs as a regular user and asks once about system package installation
 - Virtual environment is created in `~/cognito-envs/ai_breadcrumb/` (configurable via `VENV_BASE`)
-- PyTorch 2.3.1 is installed from the official PyTorch repository with ROCm 5.7 support when ROCm is detected
-- For systems without ROCm, it installs generic PyTorch 2.3.1+ from requirements.txt
+- PyTorch 2.9.0 is installed from the official PyTorch repository with ROCm 7.0 support when ROCm is detected
+- For systems without ROCm, it installs generic PyTorch 2.9.0 from requirements.txt
 
 After bootstrap completes, simply run:
 ```bash
@@ -276,7 +276,7 @@ After bootstrap completes, simply run:
 # 1. Quick setup (one command)
 ./scripts/quickstart.sh
 
-# For AMD GPU users (MI25, MI60, etc.) - auto-detects ROCm version:
+# For AMD GPU users (Radeon Pro V620, etc.) - auto-detects ROCm version:
 ./scripts/quickstart.sh --amd
 
 # 2. Or manual setup:
@@ -343,9 +343,9 @@ The local environment is configured for maximum iteration speed and feedback fid
 
 | Component | Specification | Function |
 | :--- | :--- | :--- |
-| **Operating System** | Ubuntu 20.04 | Stable base for the ROCm stack. |
-| **GPU Compute Stack** | ROCm 5.7.1, PyTorch 2.3.1 | Enables the local training and inference on AMD GPUs. |
-| **Accelerators (Current)** | **2x AMD Instinct MI25 (`gfx900`)** | Used for local model fine-tuning and running the Compiler-in-Loop. |
+| **Operating System** | Ubuntu 22.04.3 | Stable base for the ROCm stack. |
+| **GPU Compute Stack** | ROCm 7.0.2, PyTorch 2.9.0 | Enables the local training and inference on AMD GPUs. |
+| **Accelerators (Current)** | **2x AMD Radeon Pro V620 (`gfx1030`)** | Used for local model fine-tuning and running the Compiler-in-Loop. |
 | **Process Loop** | `Analyze Context` $\rightarrow$ `Generate Code + Breadcrumbs` $\rightarrow$ `Compile/Test` $\rightarrow$ **`Learn from Errors`** | The AI generates code, the host compiles it, and the resulting compiler error or test failure is fed back into the model's history (`COMPILER_ERR`). |
 
 -----
@@ -372,7 +372,7 @@ The AI's first major set of tasks, derived from initial boilerplate and guided b
 
 | Project Component | AI Phase | Status | Key AI Accomplishment |
 | :--- | :--- | :--- | :--- |
-| **RadeonSI Driver** | `GRAPHICS_PIPELINE`, `HARDWARE_PROBE` | `PARTIAL/IMPLEMENTED` | **Successfully implemented the complex Multi-GPU Manager** (handling MI25/MI60 logic) and a comprehensive 8-case test suite. |
+| **RadeonSI Driver** | `GRAPHICS_PIPELINE`, `HARDWARE_PROBE` | `PARTIAL/IMPLEMENTED` | **Successfully implemented the complex Multi-GPU Manager** (handling modern AMD GPU logic) and a comprehensive 8-case test suite. |
 | **ROCm.library** | `LLVM_INIT` | `PARTIAL/SCAFFOLDED` | The AI correctly identified and created the **LLVM Compiler Library scaffold**—the crucial dependency for runtime shader compilation. |
 | **IJS/Gutenprint** | `PRINTER_STACK` | `NOT_STARTED` | Planned future expansion to a new domain, validating the AI's ability to **context-switch** and integrate complex external dependencies. |
 
@@ -393,13 +393,13 @@ git clone <AROS_Development_URL> aros-src
 The environment must match the training stack for inference and compilation to succeed:
 
 ```bash
-# For AMD GPU users (MI25, MI60, etc.):
+# For AMD GPU users (Radeon Pro V620, etc.):
 # The setup script will auto-detect your ROCm version and install the correct PyTorch
 ./scripts/setup.sh --amd
 
 # Or manually ensure ROCm and PyTorch are installed:
 source /opt/rocm/bin/setup_vars
-pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
 ```
 
 ### 3\. Training the Local Model
@@ -408,7 +408,7 @@ The core model must be fine-tuned on the AROS history. This is a one-time proces
 
 ```bash
 # Assuming an internal script for training a local model (e.g., Llama/Mistral)
-./scripts/train_model.sh --data aros-src --output models/aros-v1.3 --rocm-arch gfx900,gfx906
+./scripts/train_model.sh --data aros-src --output models/aros-v1.3 --rocm-arch gfx1030
 ```
 
 ### 4\. Running the Self-Evolution Loop

@@ -11,7 +11,7 @@ Updated the bootstrap Ubuntu script and related files to use a Python virtual en
 - **Uses sudo explicitly**: System package installations use `sudo` command directly (prompts for password)
 - **Virtual environment**: Creates and uses a Python venv in `venv/` directory
 - **Python packages in venv**: All Python package installations happen within the venv
-- **PyTorch 2.3.1+**: Uses PyTorch 2.3.1 from requirements.txt (except ROCm 5.7.1 systems)
+- **PyTorch 2.9.0+**: Uses PyTorch 2.9.0 from requirements.txt (except ROCm 7.0.2 systems)
 
 Key changes:
 - Added `VENV_DIR` variable pointing to `$PROJECT_ROOT/venv`
@@ -35,7 +35,7 @@ Key changes:
 
 ### 3. setup.sh
 - **Venv compatibility**: Works correctly whether run in venv or system context
-- **PyTorch version**: Uses PyTorch 2.3.1 for all systems (with ROCm 5.7 support when available)
+- **PyTorch version**: Uses PyTorch 2.9.0 for all systems (with ROCm 7.0 support when available)
 
 Key changes:
 - Updated Python command detection to work with venv
@@ -72,7 +72,7 @@ Key changes:
 3. **Safer**: No system-wide package modifications (except system packages via sudo)
 4. **Cleaner**: Easier to remove/recreate environment by deleting venv directory
 5. **User-friendly**: Runs as regular user, prompts for sudo only when needed
-6. **Up-to-date PyTorch**: Uses PyTorch 2.3.1+ with better support and features
+6. **Up-to-date PyTorch**: Uses PyTorch 2.9.0+ with better support and features
 
 ## Usage
 
@@ -117,8 +117,8 @@ New functionality tested:
 
 ## Compatibility Notes
 
-- **ROCm 5.7**: Uses PyTorch 2.3.1+rocm5.7 from official PyTorch repository
-- **Other systems**: Use PyTorch 2.3.1+ from requirements.txt
+- **ROCm 7.0**: Uses PyTorch 2.9.0+rocm7.0 from official PyTorch repository
+- **Other systems**: Use PyTorch 2.9.0+ from requirements.txt
 - **Backward compatible**: Script detects if venv doesn't exist and provides helpful messages
 
 ## Migration Path

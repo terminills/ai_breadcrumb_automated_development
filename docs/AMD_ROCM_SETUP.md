@@ -4,7 +4,7 @@ This document describes the new `--amd` flag feature for automatic ROCm-compatib
 
 ## Problem
 
-The previous setup installed generic PyTorch which is not compatible with AMD Instinct GPUs (MI25, MI60, etc.). Users with ROCm-enabled AMD GPUs needed to manually install the correct PyTorch version from the AMD repository.
+The previous setup installed generic PyTorch which is not compatible with AMD Instinct GPUs (Radeon Pro V620, Radeon Pro V620, etc.). Users with ROCm-enabled AMD GPUs needed to manually install the correct PyTorch version from the AMD repository.
 
 ## Solution
 
@@ -53,9 +53,9 @@ AMD ROCm mode enabled
 Detecting ROCm version...
 ✓ Detected ROCm version: 5.7
 
-✓ ROCm 5.7 is supported by PyTorch
+✓ ROCm 7.0 is supported by PyTorch
 
-Installing PyTorch 2.3.1 with ROCm 5.7 support...
+Installing PyTorch 2.9.0 with ROCm 7.0 support...
 ```
 
 ## Supported ROCm Versions
@@ -69,8 +69,8 @@ For other versions, the script will attempt installation but may require manual 
 ## Supported Hardware
 
 This feature is designed for AMD Instinct GPUs including:
-- AMD Instinct MI25 (gfx900)
-- AMD Instinct MI60 (gfx906)
+- AMD Instinct Radeon Pro V620 (gfx1030)
+- AMD Instinct Radeon Pro V620 (gfx1030)
 - Other ROCm-compatible AMD GPUs
 
 ## Troubleshooting
@@ -89,8 +89,8 @@ If automatic detection fails, you can install manually:
 # Determine your ROCm version
 rocminfo | grep "Runtime Version"
 
-# Install PyTorch manually (example for ROCm 5.7)
-pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+# Install PyTorch manually (example for ROCm 7.0)
+pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
 ```
 
 ### Verify Installation
@@ -127,7 +127,7 @@ The script will:
 1. Detect Python and Git
 2. Detect ROCm version (e.g., 5.7.1)
 3. Install dependencies
-4. Install PyTorch 2.3.1 with ROCm 5.7 support
+4. Install PyTorch 2.9.0 with ROCm 7.0 support
 5. Offer to start the monitoring UI
 
 ### Example 2: Manual Dependency Installation

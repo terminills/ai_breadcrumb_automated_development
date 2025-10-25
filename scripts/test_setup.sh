@@ -74,12 +74,12 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # Create a mock ROCm installation
 MOCK_ROCM_PATH="/tmp/test-rocm-$$"
 mkdir -p "$MOCK_ROCM_PATH/.info"
-echo "5.7.1-10702" > "$MOCK_ROCM_PATH/.info/version"
+echo "7.0.2-10702" > "$MOCK_ROCM_PATH/.info/version"
 
 # Test the version parsing logic
 test_version=$(cat "$MOCK_ROCM_PATH/.info/version" | cut -d'-' -f1 | cut -d'.' -f1,2)
-if [ "$test_version" = "5.7" ]; then
-    echo "✓ Version parsing works correctly (5.7.1-10702 → 5.7)"
+if [ "$test_version" = "7.0" ]; then
+    echo "✓ Version parsing works correctly (7.0.2-10702 → 7.0)"
 else
     echo "✗ Version parsing failed (got: $test_version)"
     exit 1
@@ -135,7 +135,7 @@ echo ""
 # Test 6: Verify ROCm version support list
 echo "Test 6: ROCm version support check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-supported_versions=("5.0" "5.1" "5.2" "5.3" "5.4" "5.5" "5.6" "5.7" "6.0" "6.1")
+supported_versions=("6.0" "6.1" "6.2" "7.0" "7.1")
 for version in "${supported_versions[@]}"; do
     if grep -q "$version" "$PROJECT_ROOT/scripts/setup.sh"; then
         echo "✓ ROCm $version is listed as supported"
@@ -155,10 +155,10 @@ echo "  ✓ Scripts are executable and have valid syntax"
 echo "  ✓ Help documentation is complete"
 echo "  ✓ ROCm detection logic is correct"
 echo "  ✓ Documentation is updated"
-echo "  ✓ ROCm versions 5.0-6.1 are supported"
+echo "  ✓ ROCm versions 6.0-7.1 are supported"
 echo ""
 echo "The setup script can now:"
 echo "  • Auto-detect ROCm version on the system"
-echo "  • Install PyTorch from the correct AMD ROCm repository"
-echo "  • Support MI25, MI60, and other AMD Instinct GPUs"
+echo "  • Install PyTorch from the official PyTorch repository"
+echo "  • Support Radeon Pro V620, RX 7000 series, and other modern AMD GPUs"
 echo ""

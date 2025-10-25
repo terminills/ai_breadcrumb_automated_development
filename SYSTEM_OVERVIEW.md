@@ -191,7 +191,7 @@ AROS Git History → Dataset Preparation → Model Fine-tuning → Deployment
 - Dataset: ~50GB AROS commit history
 - Training Time: 2-48 hours (depends on GPU)
 - Model Size: 7-13GB (fine-tuned CodeLlama)
-- Inference: 1-5 tokens/second on MI25 GPUs
+- Inference: 1-5 tokens/second on Radeon Pro V620 GPUs
 
 ## Security Considerations
 
@@ -276,8 +276,8 @@ AROS Git History → Dataset Preparation → Model Fine-tuning → Deployment
 - 50GB+ disk space
 
 ### Optional (for full training)
-- AMD Instinct MI25/MI60 or newer
-- ROCm 5.7+
+- AMD Instinct Radeon Pro V620/Radeon Pro V620 or newer
+- ROCm 7.0+
 - 16GB+ GPU memory
 - PyTorch 2.3+ with ROCm
 

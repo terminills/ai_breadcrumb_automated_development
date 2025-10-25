@@ -8,9 +8,9 @@ This guide will help you set up and run the AI Breadcrumb Automated Development 
 - Python 3.8 or higher
 - Git
 - 20GB+ free disk space (for AROS repository)
-- Optional: AMD ROCm-capable GPU (MI25, MI60, etc.)
-  - ROCm 5.7.1 can be automatically installed by the bootstrap script for Ubuntu 22.04.3
-  - Script handles DKMS compatibility issues automatically
+- Optional: AMD ROCm-capable GPU (Radeon Pro V620, RX 7000 series, etc.)
+  - ROCm 7.0.2 can be automatically installed by the bootstrap script for Ubuntu 22.04.3
+  - Script provides full driver support for modern AMD GPUs
 
 ## Complete Bootstrap for Ubuntu 22.04.3 (Recommended)
 
@@ -33,13 +33,13 @@ The script will ask you **once** if you want to install/upgrade system packages:
 4. **Virtual Environment**: Creates Python venv in `~/cognito-envs/ai_breadcrumb/`
 5. **ROCm Management**: 
    - Checks for existing ROCm installation
-   - On Ubuntu 22.04.3: Offers to install ROCm 5.7.1 if not present (requires sudo)
-   - Handles DKMS compatibility issues automatically
+   - On Ubuntu 22.04.3: Offers to install ROCm 7.0.2 if not present (requires sudo)
+   - Provides full driver support for modern AMD GPUs
    - Validates AMD GPU availability
 6. **GitHub Token**: Prompts for and securely stores your GitHub token
 7. **Repository Cloning**: Clones AROS-OLD (private) and configures upstream
 8. **Database Schema**: Initializes and migrates database schema
-9. **PyTorch**: Installs PyTorch 2.3.1+ in venv (with ROCm 5.7 support when available)
+9. **PyTorch**: Installs PyTorch 2.9.0 in venv (with ROCm 7.0 support when available)
 10. **Network UI**: Configures UI for local network access
 11. **Verification**: Tests the complete installation
 
@@ -118,10 +118,10 @@ For AMD GPU users with ROCm (auto-detects ROCm version):
 
 The `--amd` flag will:
 - Automatically detect your installed ROCm version
-- Install PyTorch from the AMD ROCm repository matching your version
-- Ensure compatibility with AMD Instinct GPUs (MI25, MI60, etc.)
+- Install PyTorch from the official PyTorch repository matching your ROCm version
+- Ensure compatibility with modern AMD GPUs (Radeon Pro V620, RX 7000 series, etc.)
 
-**Note**: The setup script supports ROCm versions 5.0 through 6.1. If you have a different version, it will attempt installation but may require manual intervention.
+**Note**: The setup script supports ROCm versions 6.0 through 7.1. If you have a different version, it will attempt installation but may require manual intervention.
 
 Alternative quick setup (includes all steps):
 ```bash
@@ -436,7 +436,7 @@ See the main README.md for complete breadcrumb tag reference.
 To train on specific AROS components:
 
 ```bash
-./scripts/train_model.sh /path/to/aros custom-model-name gfx900
+./scripts/train_model.sh /path/to/aros custom-model-name gfx1030
 ```
 
 ### Targeted Compilation

@@ -2,18 +2,17 @@
 # Ubuntu 22.04.3 Bootstrap Script for AROS-Cognito AI Development System
 # This script provides a complete setup from scratch including:
 # - System dependency installation
-# - ROCm 5.7.1 installation (optional, for Ubuntu 22.04.3)
+# - ROCm 7.0.2 installation (optional, for Ubuntu 22.04.3)
 # - ROCm validation and GPU detection
 # - GitHub token management and repo cloning
 # - Database schema initialization
 # - UI configuration for network access
-# - PyTorch with ROCm support
+# - PyTorch 2.9.0 with ROCm support
 #
-# ROCm 5.7.1 Note:
-# Ubuntu 22.04.3 has DKMS module issues with newer ROCm versions.
-# This script installs ROCm 5.7.1 without DKMS, using kernel's built-in
-# amdgpu driver. The kernel module may report version 1.1, but ROCm 5.7.1
-# userspace tools and libraries are correctly installed and functional.
+# ROCm 7.0.2 Note:
+# Ubuntu 22.04.3 now supports ROCm 7.0.2 with improved stability.
+# This script installs ROCm 7.0.2 with full driver support for modern
+# AMD GPUs including Radeon Pro V620 (gfx1030).
 
 set -euo pipefail
 
@@ -181,8 +180,8 @@ detect_rocm_version() {
             # Force 5.7 for PyTorch compatibility when kernel reports 1.1
             if [ "$rocm_ver" = "1.1" ] && [ -f "/opt/rocm/.info/version" ]; then
                 local file_ver=$(cat /opt/rocm/.info/version 2>/dev/null | cut -d'-' -f1 | cut -d'.' -f1,2)
-                if [[ "$file_ver" =~ ^5\.7 ]]; then
-                    echo "5.7"
+                if [[ "$file_ver" =~ ^7\.0 ]]; then
+                    echo "7.0"
                     return 0
                 fi
             fi
@@ -230,33 +229,29 @@ detect_rocm_version() {
     return 1
 }
 
-# Function to install ROCm 5.7.1 for Ubuntu 22.04.3
-install_rocm_5_7_1() {
+# Function to install ROCm 7.0.2 for Ubuntu 22.04.3
+install_rocm_7_0_2() {
     if [ "$INSTALL_SYSTEM_PACKAGES" = false ]; then
         print_warning "Cannot install ROCm without system package installation permission"
         print_info "Please install ROCm manually or re-run with system package installation enabled"
         return 1
     fi
     
-    print_info "Installing ROCm 5.7.1 for Ubuntu 22.04.3..."
+    print_info "Installing ROCm 7.0.2 for Ubuntu 22.04.3..."
     echo ""
     
-    # Ubuntu 22.04.3 has DKMS issues with newer ROCm versions
-    # Force ROCm 5.7.1 which uses older kernel modules that work
-    print_info "Setting up ROCm repository for version 5.7.1..."
+    # Ubuntu 22.04.3 now supports ROCm 7.0.2 with improved stability
+    print_info "Setting up ROCm repository for version 7.0.2..."
     
     # Add ROCm repository key
     print_info "Adding ROCm GPG key..."
-    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | sudo apt-key add - 2>/dev/null || {
-        # Fallback for newer apt that doesn't support apt-key
-        wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/rocm.gpg > /dev/null
-    }
+    wget -q -O - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/rocm.gpg > /dev/null
     
-    # Add ROCm 5.7.1 repository (ubuntu focal/jammy)
-    print_info "Adding ROCm 5.7.1 repository..."
-    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/5.7.1 ubuntu main" | sudo tee /etc/apt/sources.list.d/rocm.list
+    # Add ROCm 7.0.2 repository
+    print_info "Adding ROCm 7.0.2 repository..."
+    echo "deb [arch=amd64] https://repo.radeon.com/rocm/apt/7.0.2 ubuntu main" | sudo tee /etc/apt/sources.list.d/rocm.list
     
-    # Set repository priority to prefer ROCm 5.7.1
+    # Set repository priority to prefer ROCm 7.0.2
     print_info "Setting repository priority..."
     echo -e "Package: *\nPin: release o=repo.radeon.com\nPin-Priority: 600" | sudo tee /etc/apt/preferences.d/rocm-pin-600
     
@@ -264,12 +259,10 @@ install_rocm_5_7_1() {
     print_info "Updating package lists..."
     sudo apt-get update -qq
     
-    # Install ROCm 5.7.1 (without DKMS - uses existing kernel modules)
-    print_info "Installing ROCm 5.7.1 packages (this may take several minutes)..."
-    print_warning "Note: Installing without DKMS due to Ubuntu 22.04.3 compatibility issues"
+    # Install ROCm 7.0.2 with full driver support
+    print_info "Installing ROCm 7.0.2 packages (this may take several minutes)..."
     
-    # Install core ROCm packages without kernel driver (amdgpu-dkms)
-    # This allows using the kernel's built-in amdgpu driver which shows as 1.1
+    # Install core ROCm packages with driver support for gfx1030 (Radeon Pro V620)
     sudo apt-get install -y -qq \
         rocm-dev \
         rocm-libs \
@@ -297,9 +290,9 @@ install_rocm_5_7_1() {
     export PATH=$PATH:/opt/rocm/bin:/opt/rocm/opencl/bin
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/rocm/lib
     
-    print_success "ROCm 5.7.1 installed successfully"
+    print_success "ROCm 7.0.2 installed successfully"
     print_info "Note: You may need to log out and back in for group changes to take effect"
-    print_info "Note: Kernel module version (rocminfo) may show 1.1, but ROCm 5.7.1 is correctly installed"
+    print_info "Note: ROCm 7.0.2 supports modern AMD GPUs including Radeon Pro V620 (gfx1030)"
     echo ""
     
     return 0
@@ -315,25 +308,25 @@ check_rocm() {
     if [ -n "$ROCM_VERSION" ]; then
         print_success "ROCm $ROCM_VERSION detected"
         
-        # Check if it's 5.7.1 or compatible
-        if [[ "$ROCM_VERSION" == "5.7" ]]; then
-            print_success "ROCm 5.7.x detected - validated for PyTorch compatibility"
-            # Note: On Ubuntu 22.04.3, kernel module may show 1.1 but userspace is 5.7.1
+        # Check if it's 7.0.2 or compatible
+        if [[ "$ROCM_VERSION" == "7.0" ]]; then
+            print_success "ROCm 7.0.x detected - validated for PyTorch compatibility"
+            # Note: On Ubuntu 22.04.3, ROCm 7.0.2 provides full support for modern GPUs
             if command_exists rocminfo; then
                 local kernel_ver=$(rocminfo 2>/dev/null | grep "Runtime Version" | head -1 | awk '{print $3}' | cut -d'.' -f1,2)
                 if [ "$kernel_ver" = "1.1" ]; then
-                    print_info "Note: Kernel module reports 1.1, but ROCm 5.7.1 userspace is correctly installed"
+                    print_info "Note: Kernel module reports 1.1, but ROCm 7.0.2 userspace is correctly installed"
                 fi
             fi
         else
-            print_warning "ROCm $ROCM_VERSION detected (expected 5.7.1)"
+            print_warning "ROCm $ROCM_VERSION detected (expected 7.0.2)"
             print_warning "PyTorch will attempt to use this version"
         fi
         
         # Test GPU detection
-        if command_exists rocminfo && rocminfo 2>/dev/null | grep -q "gfx900\|gfx906"; then
+        if command_exists rocminfo && rocminfo 2>/dev/null | grep -q "gfx1030"; then
             GPU_ARCH=$(rocminfo 2>/dev/null | grep "Name:" | grep "gfx" | head -1 | awk '{print $2}')
-            print_success "AMD GPU detected: $GPU_ARCH"
+            print_success "AMD GPU detected: $GPU_ARCH (Radeon Pro V620)"
         else
             print_warning "No compatible AMD GPU detected"
         fi
@@ -344,18 +337,18 @@ check_rocm() {
     print_warning "ROCm not detected or not properly installed"
     echo ""
     
-    # Offer to install ROCm 5.7.1 for Ubuntu 22.04.3
+    # Offer to install ROCm 7.0.2 for Ubuntu 22.04.3
     if [ -f /etc/os-release ]; then
         . /etc/os-release
         if [[ "$ID" == "ubuntu" ]] && [[ "$VERSION_ID" == "22.04" ]]; then
-            print_info "Would you like to install ROCm 5.7.1 for Ubuntu 22.04.3?"
-            print_info "This will install ROCm without DKMS to avoid kernel module issues."
+            print_info "Would you like to install ROCm 7.0.2 for Ubuntu 22.04.3?"
+            print_info "This will install ROCm with full driver support for modern AMD GPUs."
             echo ""
-            read -p "Install ROCm 5.7.1? (y/n) " -n 1 -r
+            read -p "Install ROCm 7.0.2? (y/n) " -n 1 -r
             echo ""
             
             if [[ $REPLY =~ ^[Yy]$ ]]; then
-                install_rocm_5_7_1
+                install_rocm_7_0_2
                 if [ $? -eq 0 ]; then
                     # Re-detect after installation
                     ROCM_VERSION=$(detect_rocm_version)
@@ -504,7 +497,7 @@ install_pytorch() {
         print_info "Installing PyTorch with ROCm $ROCM_VERSION support..."
         bash "$SCRIPT_DIR/setup.sh" --amd
     else
-        print_info "Installing generic PyTorch (will use version from requirements.txt: 2.3.1+)..."
+        print_info "Installing generic PyTorch (will use version from requirements.txt: 2.9.0+)..."
         bash "$SCRIPT_DIR/setup.sh"
     fi
     

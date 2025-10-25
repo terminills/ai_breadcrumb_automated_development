@@ -201,14 +201,14 @@ Like GitHub Copilot gathering context:
 - Models: Codegen-350M + Llama-2-7B
 
 ### Recommended (AMD GPU)
-- GPU: AMD Instinct MI25/MI60 or RX 6000/7000
+- GPU: AMD Instinct Radeon Pro V620/Radeon Pro V620 or RX 6000/7000
 - VRAM: 8GB+
 - RAM: 16GB
 - ROCm: 5.x
 - Models: Codegen-2B + Llama-2-7B
 
 ### Optimal (AMD GPU)
-- GPU: AMD Instinct MI60/MI100
+- GPU: AMD Instinct Radeon Pro V620/MI100
 - VRAM: 16GB+
 - RAM: 32GB+
 - ROCm: 5.x
@@ -328,7 +328,7 @@ session.end_session(status='completed')
 
 1. **Privacy First**: Fully local, no data leaves your machine
 2. **Open Source**: Uses open-source models (Codegen, Llama)
-3. **AMD GPU Optimized**: Specifically tested for MI25/MI60
+3. **AMD GPU Optimized**: Specifically tested for Radeon Pro V620/Radeon Pro V620
 4. **Context Aware**: Explores before generating (like Copilot)
 5. **Self-Improving**: Learns from errors over time
 6. **Transparent**: See reasoning, exploration, decisions

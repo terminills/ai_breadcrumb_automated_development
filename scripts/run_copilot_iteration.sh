@@ -45,7 +45,7 @@ if [ $? -ne 0 ]; then
     echo "  pip install torch transformers"
     echo ""
     echo "To install (AMD ROCm version for GPU acceleration):"
-    echo "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7"
+    echo "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0"
     echo "  pip install transformers"
     echo ""
     read -p "Continue anyway? (y/N) " -n 1 -r

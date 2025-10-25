@@ -1,8 +1,8 @@
-# PyTorch 2.3.1 Installation Guide
+# PyTorch 2.9.0 Installation Guide
 
 ## Overview
 
-This project requires PyTorch 2.3.1 for AI model-based iteration and code generation. However, the UI and session management can be tested in **demo mode** without PyTorch installed.
+This project requires PyTorch 2.9.0 for AI model-based iteration and code generation. However, the UI and session management can be tested in **demo mode** without PyTorch installed.
 
 ## Demo Mode (No PyTorch Required)
 
@@ -25,31 +25,31 @@ For testing the UI and session flow without installing PyTorch:
 
 Demo mode simulates iteration progress through exploration, reasoning, generation, review, and compilation phases without requiring actual AI models.
 
-## Installing PyTorch 2.3.1
+## Installing PyTorch 2.9.0
 
 ### For CPU-only systems:
 
 ```bash
-pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 ```
 
 ### For NVIDIA CUDA systems:
 
 ```bash
 # CUDA 11.8
-pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 # CUDA 12.1
-pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
-### For AMD ROCm systems (MI25, MI60, etc.):
+### For AMD ROCm systems (Radeon Pro V620, Radeon Pro V620, etc.):
 
-This project is tested with ROCm 5.7.x (specifically 5.7.1). PyTorch 2.3.1 with ROCm support:
+This project is tested with ROCm 7.0.x (specifically 5.7.1). PyTorch 2.9.0 with ROCm support:
 
 ```bash
-# ROCm 5.7.x (including 5.7.1)
-pip install torch==2.3.1 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+# ROCm 7.0.x (including 5.7.1)
+pip install torch==2.9.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm7.0
 ```
 
 **Note:** AMD GPU support requires ROCm to be installed separately. See [ROCm Installation Guide](https://rocmdocs.amd.com/en/latest/Installation_Guide/Installation-Guide.html)
@@ -64,7 +64,7 @@ The project includes an automated bootstrap script that handles PyTorch installa
 
 This script:
 - Detects your ROCm version automatically
-- Installs PyTorch 2.3.1+ with appropriate ROCm support
+- Installs PyTorch 2.9.0+ with appropriate ROCm support
 - Sets up virtual environment in `~/cognito-envs/ai_breadcrumb/`
 - Configures all dependencies
 
@@ -78,7 +78,7 @@ python3 -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA: 
 
 Expected output:
 ```
-PyTorch: 2.3.1+cu118  # or rocm5.7, cpu, etc.
+PyTorch: 2.3.1+cu118  # or rocm7.0, cpu, etc.
 CUDA: True  # or False for CPU/ROCm
 ROCm: 5.7.1  # or N/A for non-ROCm
 ```
